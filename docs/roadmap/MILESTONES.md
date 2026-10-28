@@ -22,11 +22,14 @@ Primeiros passos práticos: (1) ADM aprova A9/A13; (2) PoC-1; (3) bootstrap do m
 | Item | Estado |
 |---|---|
 | Docs de discovery e ADRs 0001–0006 | Feito |
-| Foundation: core + comandos básicos (fake adapter) | Feito (PR inicial) |
-| Persistência SQLite | Feito (PR #1) |
-| Adaptador Baileys | Feito, **não testado com WhatsApp real** (PR #2) |
-| Spike MLBB (documentação) | Feito (PR #3); estatísticas pessoais fora do escopo |
+| Core + comandos (`/ping /ajuda /registrar /perfil /xp /rank /top`) | Feito |
+| Persistência SQLite | Feito |
+| Exportação CSV (Power BI/Excel) | Feito |
+| Adaptador Baileys | Feito, **não testado com WhatsApp real** |
+| Provedor MLBB (heróis/meta/counters) + `/heroi /meta /counter` | Feito; validado contra a API real em 2026-10-28; sem estatísticas pessoais (decisão) |
+| UI do Controller (Expo/PWA) | Protótipo com dados falsos; login é mock **sem segurança** |
+| Teste do WhatsApp real (número de teste) | **Pendente — depende do responsável** |
 | PoC do Host Android em aparelho real | **Pendente — caminho crítico** |
-| UI do Controller | Bloqueado: acesso ao Gemini/Antigravity |
-| Canal Host ↔ Controller, login simples | Não iniciado |
-| `MLBBProvider` (heróis) | Próximo |
+| Canal Host ↔ Controller + login real (senha verificada pelo Host) | Não iniciado |
+| Membro Estrela (pontuação, sorteio, regra de não repetir vencedor) | Não iniciado |
+| Moderação básica, boas-vindas, entrada/saída de membros | Não iniciado |

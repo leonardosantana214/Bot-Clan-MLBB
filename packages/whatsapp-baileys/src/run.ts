@@ -3,6 +3,8 @@ import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createBot } from '@aerobot/core';
 import { SqliteStorage } from '@aerobot/storage-sqlite';
+import { ArenaProvider } from '@aerobot/mlbb-provider';
+import { createMlbbCommands } from '@aerobot/mlbb-commands';
 import { BaileysAdapter } from './index.js';
 import { BaileysSocketFactory } from './baileys-socket.js';
 import qrcode from 'qrcode-terminal';
@@ -16,8 +18,12 @@ const adapter = new BaileysAdapter(new BaileysSocketFactory(), {
 });
 await mkdir(adapter.sessionDir, { recursive: true, mode: 0o700 });
 const groupId = process.env.AEROBOT_TEST_GROUP;
-const storage = new SqliteStorage(join(adapter.sessionDir, 'bot.sqlite'), groupId ? [{ platformGroupId: groupId, allowedCommands: ['ping', 'ajuda', 'registrar', 'perfil', 'xp'] }] : []);
-const bot = createBot({ adapter, ...storage, clock: { now: Date.now } });
+// MLBB hero commands call the unofficial Rone Arena service (cached 5 min); AEROBOT_DISABLE_MLBB=1 turns them off.
+const mlbbEnabled = process.env.AEROBOT_DISABLE_MLBB !== '1';
+const mlbbCommands = mlbbEnabled ? createMlbbCommands(new ArenaProvider({ cachePath: join(adapter.sessionDir, 'mlbb-cache.json') })) : [];
+const allowedCommands = ['ping', 'ajuda', 'registrar', 'perfil', 'xp', 'rank', 'top', ...mlbbCommands.map(command => command.name)];
+const storage = new SqliteStorage(join(adapter.sessionDir, 'bot.sqlite'), groupId ? [{ platformGroupId: groupId, allowedCommands }] : []);
+const bot = createBot({ adapter, ...storage, clock: { now: Date.now }, extraCommands: mlbbCommands });
 adapter.setPaused(process.env.AEROBOT_PAUSED === '1');
 let pending = Promise.resolve();
 const off = adapter.onMessage(message => {
