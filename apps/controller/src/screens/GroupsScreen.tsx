@@ -17,7 +17,7 @@ const MODULE_META: ReadonlyArray<{
   {
     key: 'welcome',
     label: 'Boas-vindas & Regras',
-    description: 'Recepciona novos recrutas com regras do clã e ID MLBB'
+    description: 'Recepciona novos membros com mensagem de boas-vindas'
   },
   {
     key: 'xpSystem',
@@ -26,18 +26,18 @@ const MODULE_META: ReadonlyArray<{
   },
   {
     key: 'mlbbCommands',
-    label: 'Comandos MLBB (!elo, !winrate)',
-    description: 'Habilita consultas de perfil sintético e meta de heróis'
+    label: 'Comandos MLBB (/heroi, /meta, /counter)',
+    description: 'Habilita /heroi, /meta e /counter; sem estatísticas pessoais'
   },
   {
     key: 'antiSpam',
-    label: 'Escudo Anti-Spam',
-    description: 'Bloqueia flood de figurinhas e links externos não autorizados'
+    label: 'Moderação assistida',
+    description: 'Registra flags de flood, repetição e links para revisão humana'
   },
   {
     key: 'scrimAlerts',
     label: 'Alertas de Scrim & Torneio',
-    description: 'Dispara lembretes de treinos e check-in de lineups'
+    description: 'Indisponível: serviço de alertas ainda não implementado'
   }
 ];
 
@@ -118,7 +118,7 @@ export function GroupsScreen({ api, refreshSignal }: GroupsScreenProps): React.J
           <Card
             key={ group.id }
             title={ group.name }
-            subtitle={ `${group.routeTag} • ${group.memberCount} membros • ${group.dailyMessages} msgs/dia` }
+            subtitle={ `${group.routeTag} • ${group.memberCount ?? 'Indisponível'} membros • ${group.dailyMessages} msgs/dia` }
             rightElement={
               <Badge
                 label={ `${activeCount}/${MODULE_META.length} ativos` }
@@ -137,7 +137,7 @@ export function GroupsScreen({ api, refreshSignal }: GroupsScreenProps): React.J
                       <Text style={ styles.moduleDesc }>{ mod.description }</Text>
                     </View>
                     <Switch
-                      value={ isEnabled }
+                      value={ isEnabled } disabled={mod.key === 'scrimAlerts'}
                       onValueChange={ (val) => {
                         void handleToggleModule(group.id, mod.key, val);
                       } }

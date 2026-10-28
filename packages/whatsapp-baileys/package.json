@@ -31,7 +31,8 @@
     "pino": "^9.6.0",
     "qrcode-terminal": "0.12.0",
     "@aerobot/control-protocol": "workspace:*",
-    "@aerobot/exports": "workspace:*"
+    "@aerobot/exports": "workspace:*",
+    "@aerobot/scout": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

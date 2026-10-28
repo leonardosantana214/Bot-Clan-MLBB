@@ -46,7 +46,7 @@ export class BaileysSocketFactory implements SocketFactory {
         return socket.requestPairingCode(phone);
       },
       async logout() { await socket.logout(); },
-      async listGroups() { return Object.values(await socket.groupFetchAllParticipating()).map(g => ({ id: g.id, name: g.subject.slice(0, 256) })); },
+      async listGroups() { return Object.values(await socket.groupFetchAllParticipating()).map(g => ({ id: g.id, name: g.subject.slice(0, 256), memberCount: g.participants.length })); },
       async close() { socket.ev.off('creds.update', creds); socket.end(undefined); await saves; }
     };
   }

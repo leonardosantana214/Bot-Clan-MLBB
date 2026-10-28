@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Badge, Card, EmptyState, ErrorState, Loading } from '../components';
+import { Badge, Button, Card, EmptyState, ErrorState, Loading } from '../components';
 import type { ControllerApi, XpRankEntry } from '../services/api';
 import { borders, colors, radii, spacing, typography } from '../theme';
 
@@ -10,6 +10,7 @@ export interface RankingScreenProps {
 }
 
 export function RankingScreen({ api, refreshSignal }: RankingScreenProps): React.JSX.Element {
+  const [period,setPeriod]=useState<'daily'|'weekly'|'monthly'|'all_time'>('all_time');
   const [entries, setEntries] = useState<XpRankEntry[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +19,7 @@ export function RankingScreen({ api, refreshSignal }: RankingScreenProps): React
     setLoading(true);
     setError(null);
     try {
-      const data = await api.getXpRanking();
+      const data = await api.getXpRanking(period);
       setEntries(data);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao carregar ranking de XP.';
@@ -26,7 +27,7 @@ export function RankingScreen({ api, refreshSignal }: RankingScreenProps): React
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, [api,period]);
 
   useEffect(() => {
     void loadRanking();
@@ -66,6 +67,7 @@ export function RankingScreen({ api, refreshSignal }: RankingScreenProps): React
       contentContainerStyle={ styles.scrollContent }
       showsVerticalScrollIndicator={ false }
     >
+      <View style={{flexDirection:'row',flexWrap:'wrap',gap:spacing.xs}}>{([['daily','Hoje'],['weekly','Semana'],['monthly','Mês'],['all_time','Geral']] as const).map(([key,label])=><Button key={key} label={label} variant={period===key?'primary':'outline'} onPress={()=>setPeriod(key)}/>)}</View>
       <Card
         accent
         title="Ranking"

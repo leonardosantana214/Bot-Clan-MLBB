@@ -1,3 +1,5 @@
+import { XpSettingsSchema } from '@aerobot/control-protocol';
+import { ControlRuntime } from './control-runtime.js';
 import { join } from 'node:path';
 import { createBot, displayName, defaultXpPolicy, defaultLevelFormula, calculateLevel, Persona, personaAdapter, type PersonaStyle, type LevelFormula, type XpPolicy, type Clock, type CommandDefinition, type IncomingMessage, type ObservableWhatsAppAdapter, type WhatsAppAdapter } from '@aerobot/core';
 import { SqliteStorage } from '@aerobot/storage-sqlite';
@@ -30,12 +32,14 @@ export function composeHost(options: HostOptions) {
   const clock = options.clock ?? { now: Date.now };
   const dbPath = join(options.sessionDir, 'bot.sqlite');
   const storage = new SqliteStorage(dbPath);
+  const controlRuntime = new ControlRuntime(options.sessionDir, { xpSystem: options.xpPolicy?.enabled === true });
+  controlRuntime.set('activeRoles',{...(groupId ? {chatGroupId:groupId}:{}),...(adminGroupId ? {adminGroupId}: {})});
   let levelEvents: SqliteLevelEvents;
   try { levelEvents = new SqliteLevelEvents(dbPath, formula); } catch (error) { storage.close(); throw error; }
   const levelLedger = levelEvents.wrap(storage.ledger, formula);
   const ledger = { ...levelLedger, append: async (entry: Parameters<typeof levelLedger.append>[0]) => {
     const appended = await levelLedger.append(entry);
-    if (!appended || !groupId || (options.adapter as { responsesPaused?: boolean }).responsesPaused) return appended;
+    if (!appended || !groupId || (options.adapter as { responsesPaused?: boolean }).responsesPaused || controlRuntime.get('maintenance', false)) return appended;
     const event = (await levelEvents.list(entry.memberId, entry.occurredAt, entry.occurredAt + 1)).find(e => e.transactionId === entry.id);
     if (!event) return appended;
     const member = (await storage.members.list?.())?.find(m => m.id === entry.memberId);
@@ -53,13 +57,17 @@ export function composeHost(options: HostOptions) {
     communityStore = new SqliteCommunityStore(dbPath);
     const star = createStarCommands(new StarMember({ repository: starStore, members: storage.members, clock }));
     const community = adminGroupId && groupId ? createCommunity({
-      config: { adminGroupId, chatGroupIds: [groupId] }, store: communityStore,
+      config: { adminGroupId, chatGroupIds: [groupId], welcome: { [groupId]: { enabled: true } } }, store: communityStore,
       adapter: { sendMessage: async (destination, text) => {
         // Also guard queued reports persisted under a previous ADM configuration.
-        if (destination !== adminGroupId) throw new Error('Inactive administration destination');
+        if (destination !== adminGroupId && !(destination === groupId && controlRuntime.modules(groupId).welcome && !controlRuntime.get('maintenance',false))) throw new Error('Inactive destination');
         await adapter.sendMessage(destination, text);
       } }, members: storage.members, clock
     }) : undefined;
+    if(community) {
+      const queueWelcome=community.welcome.onJoin.bind(community.welcome);
+      community.welcome.onJoin=(group,name)=>{if(controlRuntime.modules(group).welcome && !controlRuntime.get('maintenance',false)) queueWelcome(group,name);};
+    }
     // With no ADM route, only the own-warning command is exposed; no notifier is constructed.
     const communityCommands = community ?? createCommunityCommands({ store: communityStore, clock, adminGroupId: adminGroupId ?? '' });
     const memberCommands = [...star.memberCommands, ...communityCommands.memberCommands];
@@ -74,7 +82,22 @@ export function composeHost(options: HostOptions) {
       ...(adminGroupId ? [{ platformGroupId: adminGroupId, allowedCommands: [...common, ...adminCommands.map(c => c.name)] }] : [])
     ];
     // Do not trust persisted routes from an earlier host configuration.
-    const bot = createBot({ ...storage, ledger, adapter, clock, levelFormula: formula, xpPolicy: options.xpPolicy ?? defaultXpPolicy, routes: { find: async id => routes.find(r => r.platformGroupId === id) },
+    const controlledLedger = { ...ledger, append: async (entry: Parameters<typeof storage.ledger.append>[0]) => {
+      if (entry.source === 'message') {
+        let group: unknown; try { group = (JSON.parse(entry.sourceId) as unknown[])[0]; } catch { return false; }
+        if (typeof group !== 'string' || !controlRuntime.modules(group).xpSystem) return false;
+      }
+      return ledger.append(entry);
+    } };
+    const persistedXp = controlRuntime.get<unknown>('xpPolicy', undefined);
+    const xpPolicy = persistedXp === undefined ? (options.xpPolicy ?? defaultXpPolicy) : XpSettingsSchema.parse(persistedXp);
+    let commandContext: {name:string;group:string;logged:boolean}|undefined;
+    const controlledAdapter = { sendMessage: async (group: string, text: string) => {
+      if(controlRuntime.get('maintenance',false) && group !== adminGroupId) throw new Error('Manutenção ativa.');
+      try { await adapter.sendMessage(group,text); if(commandContext) { controlRuntime.command(commandContext.name,group,clock.now(),text.startsWith('Argumentos inválidos')?'error':'success'); commandContext.logged=true; } }
+      catch(error) { if(commandContext) {controlRuntime.command(commandContext.name,group,clock.now(),'error');commandContext.logged=true;} throw error; }
+    } };
+    const bot = createBot({ ...storage, levelFormula: formula, xpPolicy, ledger: controlledLedger, adapter: controlledAdapter, clock, routes: { find: async id => routes.find(r => r.platformGroupId === id) },
       extraCommands: [...(options.extraCommands ?? []), ...memberCommands, ...adminCommands] });
     let pending = Promise.resolve();
     let stopped = false;
@@ -82,11 +105,25 @@ export function composeHost(options: HostOptions) {
       if (!stopped) pending = pending.then(work).catch(() => { log('Host processing failed'); });
     };
     const receive = async (message: IncomingMessage) => {
-      if (stopped || !routes.some(r => r.platformGroupId === message.groupId)) return;
-      await community?.moderation.onMessage(message);
-      await bot.receive(message);
+      if (stopped || message.fromMe) return;
+      controlRuntime.count(message, clock.now());
+      if (!routes.some(r => r.platformGroupId === message.groupId)) return;
+      const roles = controlRuntime.get<{ adminGroupId?: string }>('activeRoles', {});
+      const isAdmin = message.groupId === (adminGroupId ?? roles.adminGroupId);
+      if (controlRuntime.get('maintenance', false) && !isAdmin) return;
+      const modules = controlRuntime.modules(message.groupId);
+      const command = /^\/([a-z][a-z0-9]*)\b/i.exec(message.text.trim())?.[1]?.toLowerCase();
+      if (!modules.mlbbCommands && command && ['heroi','meta','counter'].includes(command)) return;
+      if (modules.antiSpam) await community?.moderation.onMessage(message);
+      commandContext = command ? {name:command,group:message.groupId,logged:false} : undefined;
+      try { await bot.receive(message); }
+      catch(error) { if(commandContext && !commandContext.logged) controlRuntime.command(commandContext.name,message.groupId,clock.now(),'error'); throw error; }
+      finally { commandContext=undefined; }
     };
+    // Events come from the raw adapter: the persona wrapper only decorates outgoing text.
     const observable = options.adapter as Partial<ObservableWhatsAppAdapter>;
+    const receiptAdapter=options.adapter as typeof options.adapter & {onReceivedMessage?(handler:(event:{id:string;groupId:string})=>void):()=>void};
+    const offReceipt=receiptAdapter.onReceivedMessage?.call(options.adapter,event=>{enqueue(async()=>{controlRuntime.count({...event,senderId:'',text:'',fromMe:false},clock.now());});});
     const offMessage = observable.onMessage?.call(options.adapter, message => { enqueue(() => receive(message)); });
     const offMembership = community ? observable.onMembershipChange?.call(options.adapter, event => { enqueue(async () => { await community.membership.onMembershipChange(event); }); }) : undefined;
     const timer = community ? setInterval(() => { enqueue(() => community.tick()); }, 15_000) : undefined;
@@ -95,12 +132,12 @@ export function composeHost(options: HostOptions) {
       return closing ??= (async () => {
         stopped = true;
         if (timer) clearInterval(timer);
-        offMessage?.(); offMembership?.();
+        offReceipt?.(); offMessage?.(); offMembership?.();
         await pending;
-        communityStore?.close(); starStore?.close(); levelEvents.close(); storage.close();
+        controlRuntime.close(); communityStore?.close(); starStore?.close(); levelEvents.close(); storage.close();
       })();
     } };
   } catch (error) {
-    communityStore?.close(); starStore?.close(); levelEvents.close(); storage.close(); throw error;
+    controlRuntime.close(); communityStore?.close(); starStore?.close(); storage.close(); throw error;
   }
 }

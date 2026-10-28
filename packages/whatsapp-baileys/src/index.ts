@@ -40,6 +40,8 @@ export class BaileysAdapter implements ObservableWhatsAppAdapter {
   private sendTimer: ReturnType<typeof setTimeout> | undefined;
   private cleanup: (() => void)[] = [];
   private messages = new Set<Handler<InboundMessage>>();
+  private receipts = new Set<Handler<{id:string;groupId:string}>>();
+  onReceivedMessage(handler: Handler<{id:string;groupId:string}>): () => void { this.receipts.add(handler); return () => {this.receipts.delete(handler);}; }
   private memberships = new Set<Handler<MembershipChange>>();
   private states = new Set<Handler<ConnectionState>>();
   private queue: { group: string; text: string; resolve: () => void; reject: (e: Error) => void }[] = [];
@@ -106,7 +108,7 @@ export class BaileysAdapter implements ObservableWhatsAppAdapter {
     this.setState('logged-out');
     if (failure) this.log('Remote logout failed; local credentials removed');
   }
-  async listWhatsAppGroups(): Promise<{ id: string; name: string }[]> {
+  async listWhatsAppGroups(): Promise<{ id: string; name: string; memberCount?: number }[]> {
     if (this.state !== 'open') return [];
     const socket = this.socket;
     if (!socket?.listGroups) throw new Error('Group listing unavailable');
@@ -151,7 +153,7 @@ export class BaileysAdapter implements ObservableWhatsAppAdapter {
           }),
           socket.on('messages', event => {
             if (event.type !== 'notify' || this.stopped) return;
-            for (const raw of event.messages) { const message = normalize(raw); if (message) this.emit(this.messages, message); }
+            for (const raw of event.messages) { if(raw.message && !raw.key.fromMe && raw.key.id && raw.key.remoteJid?.endsWith('@g.us')) this.emit(this.receipts,{id:raw.key.id,groupId:raw.key.remoteJid}); const message = normalize(raw); if (message) this.emit(this.messages, message); }
           }),
           socket.on('participants', event => {
             if (!event.id.endsWith('@g.us') || !['add', 'remove'].includes(event.action)) return;

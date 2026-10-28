@@ -1,3 +1,4 @@
+import type { LeadershipQuery, LeadershipAction, LeadershipResult } from './schemas.js';
 import type { WhatsAppConnection, WhatsAppGroup, GroupRoles, GroupRolesResult } from './schemas.js';
 import { createHash } from 'node:crypto';
 import type { AuditLog, Clock } from '@aerobot/core';
@@ -13,6 +14,8 @@ import type { ControlMessageHandler } from './transport.js';
 
 /** Port the Host implements. The Host stays the source of truth; the server only authenticates, validates and audits. */
 export interface HostControlPort {
+  leadershipQuery?(query: LeadershipQuery): Promise<LeadershipResult>;
+  leadershipAction?(action: LeadershipAction, actor: string): Promise<LeadershipResult>;
   getConnection?(): Promise<WhatsAppConnection>;
   startPairing?(): Promise<{ started: boolean }>;
   disconnectSession?(): Promise<{ disconnected: boolean }>;
@@ -146,6 +149,10 @@ export class ControlServer implements ControlMessageHandler {
         await this.audit('control.renewSession', actor, 'session');
         return { outcome: { ok: true, data: { sessionId: r.id, expiresAt: r.expiresAt } } };
       }
+      case 'leadershipQuery': {
+        await this.audit(`control.query.${req.payload.section}`, actor, 'host');
+        return this.read(() => { if (!this.o.host.leadershipQuery) throw new UnsupportedControlOperation(); return this.o.host.leadershipQuery(req.payload); });
+      }
       case 'getOverview': return this.read(() => this.o.host.getOverview());
       case 'getHostState': return this.read(() => this.o.host.getHostState());
       case 'listGroups': return this.read(async () => [...await this.o.host.listGroups()]);
@@ -221,7 +228,7 @@ export class ControlServer implements ControlMessageHandler {
     try {
       // Fail closed: if the audit trail cannot be written, the action is not performed.
       await this.audit(actionOf(req), actor, subjectOf(req));
-      const data = await this.runHost(req);
+      const data = await this.runHost(req, actor);
       if (data === undefined) { this.commands.transition(rec.id, 'falhou', 'host'); return done(fail('not_found')); }
       this.commands.transition(rec.id, 'concluido', 'host');
       return done({ ok: true, data });
@@ -235,8 +242,9 @@ export class ControlServer implements ControlMessageHandler {
 
   private safeExpire(rec: CommandRecord): void { try { this.commands.transition(rec.id, 'expirou', 'host'); } catch { /* already terminal */ } }
 
-  private runHost(req: ControlRequest & { type: MutatingType }): Promise<unknown> {
+  private runHost(req: ControlRequest & { type: MutatingType }, actor: string): Promise<unknown> {
     switch (req.type) {
+      case 'leadershipAction': { if (!this.o.host.leadershipAction) throw new UnsupportedControlOperation(); return this.o.host.leadershipAction(req.payload, actor); }
       case 'startPairing': return this.capability('startPairing')();
       case 'disconnectSession': return this.capability('disconnectSession')();
       case 'setGroupRoles': return this.capability('setGroupRoles')(req.payload);
@@ -257,11 +265,13 @@ function actionOf(req: ControlRequest): string {
     case 'setResponsesPaused': return `control.setResponsesPaused:${req.payload.paused ? 'on' : 'off'}`;
     case 'setMaintenanceMode': return `control.setMaintenanceMode:${req.payload.enabled ? 'on' : 'off'}`;
     case 'setGroupModules': return `control.setGroupModules:${Object.entries(req.payload.modules).map(([k, v]) => `${k}=${v ? 'on' : 'off'}`).join(',')}`;
+    case 'leadershipAction': return `control.${req.payload.action}`;
     default: return `control.${req.type}`;
   }
 }
 function subjectOf(req: ControlRequest): string {
   switch (req.type) {
+    case 'leadershipAction': { const a=req.payload; return 'memberId' in a ? a.memberId : 'candidateId' in a ? a.candidateId : 'candidate' in a ? a.candidate.id : 'period' in a ? a.period : 'host'; }
     case 'setGroupModules': return req.payload.groupId;
     case 'requestExport': return req.payload.dataset;
     default: return 'host';

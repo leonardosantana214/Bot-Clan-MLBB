@@ -1,3 +1,4 @@
+import type { LeadershipQuery, LeadershipAction, LeadershipResult } from '@aerobot/control-protocol/browser';
 import type { WhatsAppConnection, WhatsAppGroup, GroupRoles, GroupRolesResult } from '@aerobot/control-protocol/browser';
 export type { WhatsAppConnection, WhatsAppGroup, GroupRoles, GroupRolesResult } from '@aerobot/control-protocol/browser';
 
@@ -37,7 +38,7 @@ export interface GroupRoute {
   id: string;
   name: string;
   routeTag: string;
-  memberCount: number;
+  memberCount: number | null;
   dailyMessages: number;
   modules: GroupModules;
 }
@@ -81,6 +82,8 @@ export type SimulationMode = 'normal' | 'empty' | 'error';
  * Isola toda a UI de detalhes de transporte para futura substituição por cliente HTTP/WebSocket real.
  */
 export interface ControllerApi {
+  leadershipQuery?(query: LeadershipQuery): Promise<LeadershipResult>;
+  leadershipAction?(action: LeadershipAction): Promise<LeadershipResult>;
   getConnection(): Promise<WhatsAppConnection>;
   startPairing(): Promise<{ started: boolean }>;
   disconnectSession(confirm: true): Promise<{ disconnected: boolean }>;
@@ -94,7 +97,7 @@ export interface ControllerApi {
   setMaintenanceMode(enabled: boolean): Promise<HostState>;
   getGroups(): Promise<GroupRoute[]>;
   toggleGroupModule(groupId: string, moduleKey: ModuleKey, enabled: boolean): Promise<GroupRoute>;
-  getXpRanking(): Promise<XpRankEntry[]>;
+  getXpRanking(period?: 'daily'|'weekly'|'monthly'|'all_time'): Promise<XpRankEntry[]>;
   exportCsv(dataset: ExportDataset): Promise<ExportReceipt>;
   getSettings(): Promise<BotSettings>;
   updateSettings(patch: Partial<BotSettings>): Promise<BotSettings>;

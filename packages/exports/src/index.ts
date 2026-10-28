@@ -75,3 +75,35 @@ export async function exportCsv(source: ExportSource, options: ExportOptions): P
   for (const key of Object.keys(rows) as (keyof typeof rows)[]) { const path = join(folder, `${key}_v1.csv`); await atomicWrite(path, csv([HEADERS_V1[key], ...rows[key]], options.separator)); paths.push(path); }
   return paths;
 }
+
+/** Counts CSV records without treating embedded quoted newlines as rows. */
+export function csvDataRows(content: string): number {
+  let quoted=false,records=0;
+  for(let i=0;i<content.length;i++) { const c=content[i]; if(c==='"') { if(quoted && content[i+1]==='"') i++; else quoted=!quoted; } else if(c==='\n' && !quoted) records++; }
+  return Math.max(0,records-1);
+}
+export interface LeadershipDatasetsV1 {
+  warnings: readonly (readonly unknown[])[];
+  starScores: readonly (readonly unknown[])[];
+  scout: readonly (readonly unknown[])[];
+}
+export const LEADERSHIP_HEADERS_V1 = {
+  warnings: ['schema_version','warning_id','member_id','at'],
+  starScores: ['schema_version','period','member_id','category','points','at'],
+  scout: ['schema_version','candidate_id','name','status','roles','rank','stage','evaluation']
+} as const;
+/** Rows use stable dimension keys; callers omit private notes and account identifiers. */
+export async function exportLeadershipCsv(folder: string, data: LeadershipDatasetsV1): Promise<string[]> {
+  await mkdir(folder,{recursive:true,mode:0o700});
+  const names={warnings:'warnings_v1.csv',starScores:'star_scores_v1.csv',scout:'scout_v1.csv'};
+  const paths:string[]=[];
+  for(const key of Object.keys(names) as (keyof typeof names)[]) {const path=join(folder,names[key]);await atomicWrite(path,csv([LEADERSHIP_HEADERS_V1[key],...data[key]]));paths.push(path);}
+  return paths;
+}
+
+/** Optional level_events integration. Caller supplies only verified domain events. */
+export async function exportLevelUpsCsv(folder: string, rows: readonly (readonly unknown[])[]): Promise<string> {
+  const path=join(folder,'level_ups_v1.csv');
+  await atomicWrite(path,csv([['schema_version','event_id','member_id','occurred_at','previous_level','new_level'],...rows]));
+  return path;
+}

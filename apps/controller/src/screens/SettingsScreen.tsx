@@ -1,3 +1,4 @@
+import { downloadCsv } from '../services/download';
 import { AeroInput as TextInput } from '../components/AeroInput';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -114,7 +115,7 @@ export function SettingsScreen({
       <Card title="Exportações do Host" subtitle="Prévia CSV limitada a 8192 caracteres; configurações globais indisponíveis.">
         {EXPORT_OPTIONS.map(opt => <Button key={opt.dataset} label={opt.label} loading={exportingDataset === opt.dataset} onPress={() => { void handleExport(opt.dataset); }} />)}
         {error ? <Text style={styles.receiptMeta}>{error}</Text> : null}
-        {exportReceipt ? <View><Text style={styles.receiptTitle}>{exportReceipt.fileName} • {exportReceipt.rowCount} linhas</Text><Text selectable style={styles.csvCode}>{exportReceipt.previewCsv}</Text></View> : null}
+        {exportReceipt ? <View><Text style={styles.receiptTitle}>{exportReceipt.fileName} • {exportReceipt.rowCount} linhas</Text><Button label="Baixar CSV completo" onPress={()=>{void downloadCsv(api,exportReceipt.fileName).catch(e=>setError(e instanceof Error ? e.message : 'Falha ao baixar CSV.'));}}/><Text selectable style={styles.csvCode}>{exportReceipt.previewCsv}</Text></View> : null}
       </Card>
       <Button label="Encerrar sessão" onPress={onLogout} />
     </ScrollView>;
