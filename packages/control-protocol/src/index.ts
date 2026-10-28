@@ -5,3 +5,5 @@ export * from './sessions.js';
 export * from './transport.js';
 export * from './server.js';
 export * from './client.js';
+export * from './http-server.js';
+export * from './http-transport.js';

@@ -59,7 +59,7 @@ export const GroupRouteSchema = z.object({
 });
 export const RankEntrySchema = z.object({
   rank: z.number().int().positive(), memberId: z.string(), nickname: z.string(), level: z.number().int().nonnegative(),
-  xp: z.number().int().nonnegative(), messagesSent: z.number().int().nonnegative()
+  xp: z.number().int(), messagesSent: z.number().int().nonnegative()
 });
 export const ExportReceiptSchema = z.object({
   dataset: ExportDatasetSchema, fileName: z.string(), rowCount: z.number().int().nonnegative(),
@@ -71,7 +71,7 @@ export const LogoutResultSchema = z.object({ revoked: z.number().int().nonnegati
 
 export const ERROR_CODES = [
   'invalid_request', 'unsupported_version', 'unauthenticated', 'invalid_credentials', 'rate_limited',
-  'expired', 'conflict', 'not_found', 'renewal_limit', 'internal'
+  'expired', 'conflict', 'not_found', 'renewal_limit', 'unsupported', 'internal'
 ] as const;
 export type ControlErrorCode = (typeof ERROR_CODES)[number];
 export const ControlErrorSchema = z.object({

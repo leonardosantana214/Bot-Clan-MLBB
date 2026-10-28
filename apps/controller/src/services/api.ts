@@ -49,7 +49,7 @@ export interface XpRankEntry {
   xp: number;
   nextLevelXp: number;
   messagesSent: number;
-  streakDays: number;
+  streakDays: number | null;
 }
 
 export type ExportDataset = 'xp_ranking' | 'clan_members' | 'command_logs' | 'moderation_audit';

@@ -28,6 +28,9 @@ importers:
 
   apps/controller:
     dependencies:
+      '@aerobot/control-protocol':
+        specifier: workspace:*
+        version: link:../../packages/control-protocol
       '@babel/runtime':
         specifier: ^8.0.8
         version: 8.0.8
@@ -178,6 +181,12 @@ importers:
 
   packages/whatsapp-baileys:
     dependencies:
+      '@aerobot/control-protocol':
+        specifier: workspace:*
+        version: link:../control-protocol
+      '@aerobot/exports':
+        specifier: workspace:*
+        version: link:../exports
       '@aerobot/community':
         specifier: workspace:*
         version: link:../community

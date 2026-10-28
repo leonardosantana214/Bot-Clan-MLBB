@@ -10,6 +10,7 @@ import {
   ListItem,
   Loading
 } from '../components';
+import { RemoteControllerApi } from '../services/remote';
 import type { ControllerApi, HostState, OverviewStats } from '../services/api';
 import { colors, radii, spacing, typography } from '../theme';
 
@@ -38,7 +39,7 @@ export function OverviewScreen({
     setError(null);
     try {
       const [overviewData, hostData] = await Promise.all([
-        api.getOverview(),
+        api instanceof RemoteControllerApi ? Promise.resolve(null) : api.getOverview(),
         api.getHostState()
       ]);
       setOverview(overviewData);
@@ -70,7 +71,7 @@ export function OverviewScreen({
           : await api.setMaintenanceMode(!host.maintenanceMode);
       setHost(updated);
       onHostUpdated(updated);
-      const freshOverview = await api.getOverview();
+      const freshOverview = api instanceof RemoteControllerApi ? null : await api.getOverview();
       setOverview(freshOverview);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Falha ao atualizar estado do Host.';
@@ -94,6 +95,20 @@ export function OverviewScreen({
         } }
       />
     );
+  }
+
+  if (api instanceof RemoteControllerApi && host) {
+    return <ScrollView contentContainerStyle={styles.scrollContent}>
+      <Card title="Estado real do Host" subtitle={host.instanceAlias}>
+        <Text style={styles.clanName}>{host.status}</Text>
+        <Text style={styles.seasonLabel}>Conectado: {host.lastConnectedAt} • Uptime: {host.uptimeLabel}</Text>
+        <Text style={styles.seasonLabel}>Fila: {host.pendingQueueCount} • Envios no último minuto: {host.processedPerMinute}</Text>
+        <Text style={styles.seasonLabel}>Respostas: {host.responsesPaused ? 'pausadas' : 'ativas'}</Text>
+        <Button label={host.responsesPaused ? 'Retomar respostas' : 'Pausar respostas'} loading={updatingHost} onPress={() => { setUpdatingHost(true); void api.setResponsesPaused(!host.responsesPaused).then(updated => { setHost(updated); onHostUpdated(updated); }).catch((err: unknown) => setError(err instanceof Error ? err.message : 'Falha no Host.')).finally(() => setUpdatingHost(false)); }} />
+        <Text style={styles.seasonLabel}>Métricas agregadas e manutenção: indisponíveis neste Host.</Text>
+        <Button label="Atualizar" onPress={() => { void loadData(); }} />
+      </Card>
+    </ScrollView>;
   }
 
   if (!overview || !host || overview.totalMembers === 0) {
