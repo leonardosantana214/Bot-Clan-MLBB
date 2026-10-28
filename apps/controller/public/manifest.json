@@ -1,0 +1,11 @@
+{
+  "name": "AeroBot Controller",
+  "short_name": "AeroBot",
+  "description": "Painel administrativo do bot de WhatsApp do clã de Mobile Legends",
+  "lang": "pt-BR",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#090A0F",
+  "theme_color": "#090A0F"
+}

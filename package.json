@@ -1,7 +1,7 @@
 {
   "name": "aerobot", "private": true, "type": "module", "packageManager": "pnpm@9.15.9",
   "engines": { "node": ">=22 <23", "pnpm": ">=9 <10" },
-  "scripts": { "build": "pnpm -r build", "test": "vitest run --configLoader runner", "lint": "eslint .", "typecheck": "tsc --noEmit && pnpm -r typecheck" },
+  "scripts": { "build": "pnpm -r build", "test": "vitest run --configLoader runner", "lint": "eslint .", "typecheck": "pnpm -r build && tsc --noEmit && pnpm -r typecheck" },
   "devDependencies": { "typescript": "~5.7.3", "vitest": "^3.2.0", "eslint": "^9.20.0", "typescript-eslint": "^8.24.0" },
   "pnpm": { "patchedDependencies": { "libsignal@6.0.0": "patches/libsignal@6.0.0.patch" } }
 }
