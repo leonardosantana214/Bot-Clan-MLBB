@@ -1,0 +1,152 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import type { ConnectionState, InboundMessage, MembershipChange, ObservableWhatsAppAdapter } from '@aerobot/core';
+import type { AdapterSocket, SocketFactory, WireMessage } from './socket.js';
+export type { AdapterSocket, SocketFactory, SocketEvents, WireMessage } from './socket.js';
+
+export function maskLog(value: string): string {
+  return value.replace(/\+?\d[\d :().-]{5,}\d/g, '[masked]');
+}
+export function normalize(message: WireMessage): InboundMessage | undefined {
+  const { key } = message;
+  if (key.fromMe || !key.id || !key.remoteJid?.endsWith('@g.us') || !key.participant) return;
+  let body = message.message;
+  for (let i = 0; i < 5 && body?.ephemeralMessage; i++) body = body.ephemeralMessage.message;
+  const text = body?.conversation ?? body?.extendedTextMessage?.text;
+  if (typeof text !== 'string') return;
+  return { id: key.id, groupId: key.remoteJid, senderId: key.participant, text, fromMe: false };
+}
+type Handler<T> = (value: T) => void;
+export interface AdapterOptions {
+  sessionDir?: string;
+  pairing?: { mode: 'qr'; onQr: Handler<string> } | { mode: 'code'; phone: string; onCode: Handler<string> };
+  minIntervalMs?: number; maxPerWindow?: number; windowMs?: number; maxQueue?: number;
+  baseBackoffMs?: number; maxBackoffMs?: number; maxReconnectAttempts?: number;
+  log?: Handler<string>;
+}
+export class BaileysAdapter implements ObservableWhatsAppAdapter {
+  readonly sessionDir: string;
+  private socket: AdapterSocket | undefined;
+  private state: ConnectionState = 'disconnected';
+  private paused = false;
+  private stopped = true;
+  private generation = 0;
+  private attempts = 0;
+  private opening: Promise<void> | undefined;
+  private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  private sendTimer: ReturnType<typeof setTimeout> | undefined;
+  private cleanup: (() => void)[] = [];
+  private messages = new Set<Handler<InboundMessage>>();
+  private memberships = new Set<Handler<MembershipChange>>();
+  private states = new Set<Handler<ConnectionState>>();
+  private queue: { group: string; text: string; resolve: () => void; reject: (e: Error) => void }[] = [];
+  private sending: Promise<void> | undefined;
+  private sent: number[] = [];
+  private lastSent = -Infinity;
+  constructor(private readonly factory: SocketFactory, private readonly options: AdapterOptions = {}) {
+    this.sessionDir = options.sessionDir ?? process.env.AEROBOT_SESSION_DIR ?? join(homedir(), '.aerobot', 'whatsapp-session');
+    if (options.pairing?.mode === 'code' && !/^\d{7,15}$/.test(options.pairing.phone)) throw new Error('Pairing phone must contain country code and digits only');
+    for (const value of [options.minIntervalMs, options.maxPerWindow, options.windowMs, options.maxQueue, options.baseBackoffMs, options.maxBackoffMs, options.maxReconnectAttempts]) {
+      if (value !== undefined && (!Number.isSafeInteger(value) || value < 1)) throw new Error('Limits must be positive integers');
+    }
+  }
+  get connectionState(): ConnectionState { return this.state; }
+  onMessage(h: Handler<InboundMessage>): () => void { this.messages.add(h); return () => { this.messages.delete(h); }; }
+  onMembershipChange(h: Handler<MembershipChange>): () => void { this.memberships.add(h); return () => { this.memberships.delete(h); }; }
+  onConnectionState(h: Handler<ConnectionState>): () => void { this.states.add(h); h(this.state); return () => { this.states.delete(h); }; }
+  private emit<T>(handlers: Set<Handler<T>>, value: T): void {
+    for (const handler of handlers) { try { handler(value); } catch { this.log('Observer failed'); } }
+  }
+  private log(text: string): void { try { this.options.log?.(maskLog(text)); } catch { /* Logging cannot interrupt lifecycle cleanup. */ } }
+  private setState(state: ConnectionState): void { this.state = state; this.log(`WhatsApp ${state}`); this.emit(this.states, state); }
+  connect(): Promise<void> {
+    if (this.opening) return this.opening;
+    if (!this.stopped) return Promise.resolve();
+    this.stopped = false; this.attempts = 0;
+    return this.open();
+  }
+  private open(): Promise<void> {
+    const generation = ++this.generation;
+    this.setState('connecting');
+    const work = (async () => {
+      try {
+        const socket = await this.factory.create(this.sessionDir);
+        if (this.stopped || generation !== this.generation) { await socket.close(); return; }
+        this.socket = socket;
+        this.cleanup = [
+          socket.on('connection', update => {
+            if (generation !== this.generation || this.stopped) return;
+            if (update.qr && this.options.pairing?.mode === 'qr') this.options.pairing.onQr(update.qr);
+            if (update.connection === 'open') { this.attempts = 0; this.setState('open'); this.pump(); }
+            if (update.connection === 'close') void this.closed(update.statusCode);
+          }),
+          socket.on('messages', event => {
+            if (event.type !== 'notify' || this.stopped) return;
+            for (const raw of event.messages) { const message = normalize(raw); if (message) this.emit(this.messages, message); }
+          }),
+          socket.on('participants', event => {
+            if (!event.id.endsWith('@g.us') || !['add', 'remove'].includes(event.action)) return;
+            for (const participantId of event.participants) this.emit(this.memberships, { groupId: event.id, participantId, action: event.action === 'add' ? 'join' : 'leave' });
+          })
+        ];
+        if (this.options.pairing?.mode === 'code') {
+          const code = await socket.requestPairingCode(this.options.pairing.phone);
+          if (code && !this.stopped && generation === this.generation) this.options.pairing.onCode(code);
+        }
+      } catch { if (!this.stopped && generation === this.generation) await this.closed(); }
+    })();
+    this.opening = work;
+    void work.finally(() => { if (this.opening === work) this.opening = undefined; });
+    return work;
+  }
+  private async release(): Promise<void> {
+    this.generation++;
+    for (const off of this.cleanup.splice(0)) off();
+    const socket = this.socket; this.socket = undefined;
+    try { await socket?.close(); } catch { this.log('Socket close failed'); }
+  }
+  private async closed(code?: number): Promise<void> {
+    this.setState('disconnected');
+    this.rejectQueue();
+    await this.release();
+    if (this.stopped) return;
+    if (code === 401 || code === 403 || code === 440 || code === 500 || code === 411) {
+      this.stopped = true; this.rejectQueue(); this.setState(code === 401 ? 'logged-out' : code === 403 ? 'forbidden' : 'failed'); return;
+    }
+    if (this.attempts >= (this.options.maxReconnectAttempts ?? 5)) { this.stopped = true; this.rejectQueue(); this.setState('failed'); return; }
+    const delay = Math.min((this.options.baseBackoffMs ?? 1000) * 2 ** this.attempts++, this.options.maxBackoffMs ?? 30000);
+    this.setState('reconnecting');
+    this.reconnectTimer = setTimeout(() => { this.reconnectTimer = undefined; if (!this.stopped) void this.open(); }, delay);
+  }
+  setPaused(paused: boolean): void { this.paused = paused; if (paused) this.rejectQueue(); }
+  sendMessage(group: string, text: string): Promise<void> {
+    if (this.paused || this.stopped || this.state !== 'open') return Promise.reject(new Error('Replies unavailable'));
+    if (!group.endsWith('@g.us') || !text.trim() || this.queue.length >= (this.options.maxQueue ?? 50)) return Promise.reject(new Error('Invalid reply or queue full'));
+    return new Promise((resolve, reject) => { this.queue.push({ group, text, resolve, reject }); this.pump(); });
+  }
+  private pump(): void {
+    if (this.sending || this.sendTimer || !this.queue.length || this.paused || this.stopped || this.state !== 'open') return;
+    const now = Date.now(), window = this.options.windowMs ?? 60000;
+    this.sent = this.sent.filter(time => now - time < window);
+    const wait = Math.max(0, this.lastSent + (this.options.minIntervalMs ?? 1000) - now,
+      this.sent.length >= (this.options.maxPerWindow ?? 20) ? this.sent[0]! + window - now : 0);
+    if (wait) { this.sendTimer = setTimeout(() => { this.sendTimer = undefined; this.pump(); }, wait); return; }
+    const item = this.queue.shift()!, socket = this.socket!;
+    this.lastSent = now; this.sent.push(now);
+    this.sending = (async () => {
+      try { await socket.sendMessage(item.group, item.text); item.resolve(); }
+      catch { item.reject(new Error('Reply failed')); this.log('Reply failed'); }
+    })();
+    void this.sending.finally(() => { this.sending = undefined; this.pump(); });
+  }
+  private rejectQueue(): void {
+    if (this.sendTimer) clearTimeout(this.sendTimer); this.sendTimer = undefined;
+    for (const item of this.queue.splice(0)) item.reject(new Error('Replies unavailable'));
+  }
+  async disconnect(): Promise<void> {
+    this.stopped = true;
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer); this.reconnectTimer = undefined;
+    this.rejectQueue(); await this.release(); await this.opening; await this.sending;
+    this.setState('disconnected');
+  }
+}

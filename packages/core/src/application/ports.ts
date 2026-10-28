@@ -4,6 +4,20 @@ export interface IncomingMessage {
   readonly text: string; readonly fromMe: boolean;
 }
 export interface WhatsAppAdapter { sendMessage(groupId: string, text: string): Promise<void> }
+/** Alias retained alongside IncomingMessage for existing consumers. */
+export type InboundMessage = IncomingMessage;
+export type ConnectionState = 'disconnected' | 'connecting' | 'open' | 'reconnecting' | 'logged-out' | 'forbidden' | 'failed';
+export interface MembershipChange {
+  readonly groupId: string; readonly participantId: string; readonly action: 'join' | 'leave';
+}
+/** Optional capability interface: existing send-only adapters remain compatible. */
+export interface ObservableWhatsAppAdapter extends WhatsAppAdapter {
+  connect(): Promise<void>;
+  disconnect(): Promise<void>;
+  onMessage(handler: (message: InboundMessage) => void): () => void;
+  onMembershipChange(handler: (event: MembershipChange) => void): () => void;
+  onConnectionState(handler: (state: ConnectionState) => void): () => void;
+}
 export interface MemberRepository {
   findByIdentity(platformUserId: string): Promise<Member | undefined>;
   register(member: Member): Promise<boolean>;

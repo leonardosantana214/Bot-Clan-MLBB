@@ -20,6 +20,13 @@ coverage/
 auth_info*/
 sessions/
 wa-session/
+*whatsapp-session*/
+.aerobot/
+creds.json
+pre-key-*.json
+session-*.json
+sender-key-*.json
+app-state-sync-*.json
 *.sqlite
 *.sqlite3
 *.db
