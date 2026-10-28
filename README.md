@@ -2,7 +2,7 @@
 
 Plataforma modular de gestão da comunidade brasileira de Mobile Legends: Bang Bang **A3RO B4STA**: cadastro, atividade, XP, rankings, Membro Estrela, Rising Open, sorteios, moderação, relatórios e aplicativos móveis.
 
-> **Estado:** Etapa 0 — Discovery & Architecture. Não há código de produção ainda. Tudo o que está marcado como **Proposta / Pendente** depende de aprovação da liderança.
+> **Estado:** em desenvolvimento inicial. Existem o núcleo do bot, a persistência em SQLite e um adaptador experimental do WhatsApp (nunca testado contra o WhatsApp real). Controller e Host Android ainda não foram iniciados. Itens marcados **Proposta / Pendente** dependem da liderança.
 
 ## Componentes planejados
 

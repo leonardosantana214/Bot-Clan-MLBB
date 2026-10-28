@@ -17,3 +17,16 @@ A UI do Controller só começa depois do PoC-1 e do contrato de sync estarem est
 | 7 Estabilização | Longa duração, hardening, backups, runbook, builds | Teste ≥ 14 dias no aparelho real | Todas |
 
 Primeiros passos práticos: (1) ADM aprova A9/A13; (2) PoC-1; (3) bootstrap do monorepo.
+
+## Progresso (2026-10-28)
+| Item | Estado |
+|---|---|
+| Docs de discovery e ADRs 0001–0006 | Feito |
+| Foundation: core + comandos básicos (fake adapter) | Feito (PR inicial) |
+| Persistência SQLite | Feito (PR #1) |
+| Adaptador Baileys | Feito, **não testado com WhatsApp real** (PR #2) |
+| Spike MLBB (documentação) | Feito (PR #3); estatísticas pessoais fora do escopo |
+| PoC do Host Android em aparelho real | **Pendente — caminho crítico** |
+| UI do Controller | Bloqueado: acesso ao Gemini/Antigravity |
+| Canal Host ↔ Controller, login simples | Não iniciado |
+| `MLBBProvider` (heróis) | Próximo |

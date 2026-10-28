@@ -38,5 +38,6 @@ Legenda de status: **Confirmado** (decisão da liderança) · **Proposta / Pende
 - [ADR-0003 Host: PoC antes de decidir runtime](decisions/ADR-0003-host-runtime.md)
 - [ADR-0004 Sync por outbox via Supabase](decisions/ADR-0004-sync-outbox.md)
 - [ADR-0005 XP como ledger append-only](decisions/ADR-0005-xp-ledger.md)
+- [ADR-0006 Escopo simplificado (decisão da liderança)](decisions/ADR-0006-simplified-scope.md)
 
 Documentos do plano original ainda **não** criados por falta de conteúdo real (evitar arquivos vazios): STAKEHOLDERS, USER_STORIES, FEATURE_CATALOG, RUNBOOK, BACKUP_AND_RESTORE, INCIDENT_RESPONSE, MONITORING, DISTRIBUTION. Serão criados nas etapas em que houver decisões reais.
