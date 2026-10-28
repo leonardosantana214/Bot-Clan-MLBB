@@ -55,6 +55,12 @@ describe('fake socket adapter', () => {
     off(); socket.emit('participants', { id: 'test@g.us', action: 'add', participants: ['other@lid'] }); expect(members).toHaveBeenCalledTimes(2);
     expect(states.mock.calls.flat()).toEqual(['disconnected', 'connecting', 'open']);
   });
+  it('emits content-free receipt metadata for non-text notifications and unsubscribes', async()=> {
+    const {adapter,sockets}=setup();const receipts=vi.fn();const texts=vi.fn();const off=adapter.onReceivedMessage(receipts);adapter.onMessage(texts);await adapter.connect();
+    sockets[0]!.emit('messages',{type:'notify',messages:[{...raw,message:{}},{...raw,key:{...raw.key,fromMe:true}}]});
+    expect(receipts.mock.calls).toEqual([[{id:'stable',groupId:'test@g.us'}]]);expect(texts).not.toHaveBeenCalled();
+    off();sockets[0]!.emit('messages',{type:'notify',messages:[raw]});expect(receipts).toHaveBeenCalledTimes(1);
+  });
   it('backs off exponentially, caps delay and stops at the attempt limit', async () => {
     const { adapter, sockets, create } = setup({ baseBackoffMs: 100, maxBackoffMs: 150, maxReconnectAttempts: 2 });
     await adapter.connect(); sockets[0]!.emit('connection', { connection: 'close', statusCode: 408 });

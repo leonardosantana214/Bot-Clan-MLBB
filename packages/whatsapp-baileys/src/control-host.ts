@@ -1,13 +1,18 @@
-import { readFile, writeFile, rename, chmod } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { ControlRuntime, localDay } from './control-runtime.js';
+import { LeadershipHost, type LevelEventsPort } from './leadership-host.js';
+import type { LeadershipQuery, LeadershipAction } from '@aerobot/control-protocol';
+import { readFile, writeFile, rename, chmod, mkdir } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { join } from 'node:path';
 import { GroupRolesSchema, InvalidGroupRoles, type GroupRoles, type WhatsAppConnection, type WhatsAppGroup } from '@aerobot/control-protocol';
 import { calculateLevel, rankByPeriod, rankPeriodBounds } from '@aerobot/core';
 import { ControlServer, HttpControlServer, UnsupportedControlOperation, type HostControlPort, type Overview, type RankingPeriod, type ExportDataset, type HostState } from '@aerobot/control-protocol';
-import { csv, repositorySource } from '@aerobot/exports';
+import { csv, repositorySource, atomicWrite } from '@aerobot/exports';
 import type { SqliteStorage } from '@aerobot/storage-sqlite';
 
+const safeKey = (id: string) => 'm_'+createHash('sha256').update(id).digest('hex').slice(0,24);
 const execute = promisify(execFile);
 let windowsSid: Promise<string> | undefined;
 async function restrictConfigFile(path: string): Promise<void> {
@@ -27,6 +32,7 @@ export async function readGroupRoles(sessionDir: string): Promise<GroupRoles> {
   catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}; throw new Error('Configuração de grupos inválida.'); }
 }
 export interface ControlAdapter {
+  readonly levelEvents?: LevelEventsPort;
   readonly sessionDir?: string;
   readonly connectionSnapshot?: WhatsAppConnection;
   startPairing?(): Promise<void>;
@@ -34,7 +40,14 @@ export interface ControlAdapter {
   listWhatsAppGroups?(): Promise<WhatsAppGroup[]>; setPaused(paused: boolean): void; readonly connectionState: string; readonly pendingQueueCount: number; readonly processedPerMinute: number; readonly responsesPaused: boolean; readonly lastConnectedAt: string }
 export class HostController implements HostControlPort {
   private readonly started = Date.now();
-  constructor(private readonly storage: SqliteStorage, private readonly adapter: ControlAdapter) {}
+  private runtimeStore: ControlRuntime | undefined;
+  private leadershipStore: LeadershipHost | undefined;
+  constructor(private readonly storage: SqliteStorage, private readonly adapter: ControlAdapter, private readonly env: NodeJS.ProcessEnv = process.env) {}
+  private get runtime() { if(!this.runtimeStore && this.adapter.sessionDir) this.runtimeStore=new ControlRuntime(this.adapter.sessionDir); return this.runtimeStore; }
+  private get leadership() { if(!this.leadershipStore && this.adapter.sessionDir) this.leadershipStore=new LeadershipHost(this.storage,this.adapter.sessionDir,this.env,this.adapter.levelEvents); return this.leadershipStore; }
+  close() { this.leadershipStore?.close(); this.runtimeStore?.close(); }
+  leadershipQuery(query: LeadershipQuery) { if(!this.leadership) throw new UnsupportedControlOperation(); return this.leadership.query(query); }
+  leadershipAction(action: LeadershipAction, actor: string) { if(!this.leadership) throw new UnsupportedControlOperation(); return this.leadership.action(action,actor); }
   async getConnection(): Promise<WhatsAppConnection> { return this.adapter.connectionSnapshot ?? { state: 'desconectado' }; }
   async startPairing() { if (!this.adapter.startPairing) throw new UnsupportedControlOperation(); await this.adapter.startPairing(); return { started: true }; }
   async disconnectSession() { if (!this.adapter.logoutSession) throw new UnsupportedControlOperation(); await this.adapter.logoutSession(); return { disconnected: true }; }
@@ -67,32 +80,50 @@ export class HostController implements HostControlPort {
     return {
       totalMembers: members.filter(m => m.status === 'active' || m.status === 'inactive').length,
       activeToday: new Set(today.map(t => t.memberId)).size,
-      messagesToday: today.length,
+      messagesToday: this.runtime?.today() ?? 0,
       hostStatus: state.status,
       clanName: 'AERO',
       seasonLabel: new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' }).format(now)
     };
   }
   async getHostState(): Promise<HostState> {
-    return { status: this.adapter.connectionState === 'open' ? 'online' : 'offline', instanceAlias: 'WhatsApp Host', lastConnectedAt: this.adapter.lastConnectedAt, uptimeLabel: `${Math.floor((Date.now() - this.started) / 1000)}s`, pendingQueueCount: this.adapter.pendingQueueCount, processedPerMinute: this.adapter.processedPerMinute, responsesPaused: this.adapter.responsesPaused, maintenanceMode: false };
+    return { status: this.adapter.connectionState === 'open' ? 'online' : 'offline', instanceAlias: 'WhatsApp Host', lastConnectedAt: this.adapter.lastConnectedAt, uptimeLabel: `${Math.floor((Date.now() - this.started) / 1000)}s`, pendingQueueCount: this.adapter.pendingQueueCount, processedPerMinute: this.adapter.processedPerMinute, responsesPaused: this.adapter.responsesPaused, maintenanceMode: this.runtime?.get('maintenance', false) ?? false };
   }
   async setResponsesPaused(paused: boolean) { this.adapter.setPaused(paused); return this.getHostState(); }
-  async setMaintenanceMode(enabled: boolean): Promise<never> { void enabled; throw new UnsupportedControlOperation(); }
-  async listGroups(): Promise<never> { throw new UnsupportedControlOperation(); }
-  async setGroupModules(): Promise<never> { throw new UnsupportedControlOperation(); }
+  async setMaintenanceMode(enabled: boolean) { if(!this.runtime) throw new UnsupportedControlOperation(); this.runtime.set('maintenance',enabled); if(enabled && !this.adapter.responsesPaused) {this.adapter.setPaused(true);this.adapter.setPaused(false);} return this.getHostState(); }
+  async listGroups() {
+    if(!this.runtime) throw new UnsupportedControlOperation();
+    const roles=this.runtime.get<GroupRoles>('activeRoles',await readGroupRoles(this.adapter.sessionDir!));
+    return (await this.listWhatsAppGroups()).map(g => ({ id:g.id,name:g.name,routeTag:g.id === (this.env.AEROBOT_ADMIN_GROUP ?? roles.adminGroupId) ? 'ADM' : g.id === (this.env.AEROBOT_TEST_GROUP ?? roles.chatGroupId) ? 'CHAT' : 'Sem rota ativa',memberCount:g.memberCount ?? null,dailyMessages:this.runtime!.today(g.id),modules:this.runtime!.modules(g.id) }));
+  }
+  async setGroupModules(groupId: string, modules: import('@aerobot/control-protocol').GroupModulesPatch) {
+    const group=(await this.listGroups()).find(g => g.id === groupId);
+    if(!group) return undefined;
+    if(group.routeTag === 'Sem rota ativa' || modules.scrimAlerts === true || (group.routeTag === 'ADM' && (modules.welcome === true || modules.mlbbCommands === true))) throw new UnsupportedControlOperation();
+    this.runtime!.patch(groupId,modules); return (await this.listGroups()).find(g => g.id === groupId);
+  }
   async getRanking(period: RankingPeriod) {
-    if (period === 'daily') throw new UnsupportedControlOperation();
-    const bounds = rankPeriodBounds(period === 'weekly' ? 'semana' : period === 'monthly' ? 'mes' : 'geral', Date.now());
+    const dayStart=Date.parse(`${localDay()}T00:00:00-03:00`);
+    const bounds = period === 'daily' ? {start:dayStart,end:dayStart+86_400_000} : rankPeriodBounds(period === 'weekly' ? 'semana' : period === 'monthly' ? 'mes' : 'geral', Date.now());
     const rows = await rankByPeriod(this.storage.members, this.storage.ledger, bounds.start, bounds.end);
-    return Promise.all(rows.map(async r => ({ rank: r.position, memberId: r.member.id, nickname: r.member.name, level: calculateLevel((await this.storage.ledger.list(r.member.id)).reduce((sum, tx) => sum + tx.amount, 0)), xp: r.xp, messagesSent: (await this.storage.ledger.list(r.member.id)).filter(tx => tx.source === 'message' && tx.occurredAt >= bounds.start && tx.occurredAt < bounds.end).length })));
+    return Promise.all(rows.map(async r => ({ rank: r.position, memberId: r.member.id.includes('@') ? safeKey(r.member.id) : r.member.id, nickname: r.member.name, level: calculateLevel((await this.storage.ledger.list(r.member.id)).reduce((sum, tx) => sum + tx.amount, 0)), xp: r.xp, messagesSent: (await this.storage.ledger.list(r.member.id)).filter(tx => tx.source === 'message' && tx.occurredAt >= bounds.start && tx.occurredAt < bounds.end).length })));
   }
   async requestExport(dataset: ExportDataset) {
-    if (dataset === 'command_logs') throw new UnsupportedControlOperation();
+    if (dataset === 'command_logs') {
+      if(!this.runtime) throw new UnsupportedControlOperation();
+      const logs=this.runtime.db.prepare('SELECT command,group_id,at,outcome FROM control_commands ORDER BY id').all();
+      return this.exportReceipt(dataset,'command_logs_v1.csv',logs.length,csv([['schema_version','command','group_id','at','outcome'],...logs.map(r=>[1,r.command,safeKey(String(r.group_id)),r.at,r.outcome])]));
+    }
     const snapshot = await repositorySource({ list: () => this.storage.members.list!() }, this.storage.ledger, { list: async () => this.storage.audit.list() }).snapshot();
-    const rows = dataset === 'clan_members' ? snapshot.members.map(m => [m.id, m.name, m.status]) : dataset === 'moderation_audit' ? snapshot.auditLog.map(a => [a.action, a.actorId, a.at, a.subjectId]) : (await this.getRanking('all_time')).map(r => [r.rank, r.memberId, r.nickname, r.xp]);
+    const rows = dataset === 'clan_members' ? snapshot.members.map(m => [safeKey(m.id), m.name, m.status]) : dataset === 'moderation_audit' ? snapshot.auditLog.map(a => [a.action, safeKey(a.actorId), a.at, safeKey(a.subjectId)]) : (await this.getRanking('all_time')).map(r => [r.rank, r.memberId.startsWith('m_') ? r.memberId : safeKey(r.memberId), r.nickname, r.xp]);
     const header = dataset === 'clan_members' ? ['id', 'nome', 'status'] : dataset === 'moderation_audit' ? ['acao', 'ator', 'instante', 'alvo'] : ['posicao', 'id', 'nome', 'xp'];
-    return { dataset, fileName: `${dataset}.csv`, rowCount: rows.length, generatedAt: new Date().toISOString(), previewCsv: csv([header, ...rows]).slice(0, 8192) };
+    return this.exportReceipt(dataset,`${dataset}_v1.csv`,rows.length,csv([header,...rows]));
   }
+  private async exportReceipt(dataset: ExportDataset, fileName: string, rowCount: number, content: string) {
+    if(this.adapter.sessionDir) {const folder=this.env.AEROBOT_EXPORT_DIR ?? join(this.adapter.sessionDir,'exports');await mkdir(folder,{recursive:true,mode:0o700});await atomicWrite(join(folder,fileName),content);}
+    return {dataset,fileName,rowCount,generatedAt:new Date().toISOString(),previewCsv:content.slice(0,8192)};
+  }
+
 }
 export async function startControlServer(storage: SqliteStorage, adapter: ControlAdapter, env: NodeJS.ProcessEnv = process.env) {
   if (!env.AEROBOT_CONTROL_PORT || !env.AEROBOT_ADMIN_PASSWORD_HASH) return undefined;
@@ -100,8 +131,11 @@ export async function startControlServer(storage: SqliteStorage, adapter: Contro
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('AEROBOT_CONTROL_PORT inválida.');
   const bind = env.AEROBOT_CONTROL_HOST ?? '127.0.0.1';
   if (bind !== '127.0.0.1' && bind !== '0.0.0.0') throw new Error('AEROBOT_CONTROL_HOST inválido.');
-  const protocol = new ControlServer({ host: new HostController(storage, adapter), adminPasswordHash: env.AEROBOT_ADMIN_PASSWORD_HASH, audit: storage.audit, clock: { now: Date.now } });
+  const controller = new HostController(storage, adapter, env);
+  const protocol = new ControlServer({ host: controller, adminPasswordHash: env.AEROBOT_ADMIN_PASSWORD_HASH, audit: storage.audit, clock: { now: Date.now } });
   const server = new HttpControlServer(protocol, { port, host: bind, trustNetwork: env.AEROBOT_CONTROL_TRUST_NETWORK === '1', origins: (env.AEROBOT_CONTROL_ORIGINS ?? '').split(',').map(s => s.trim()).filter(Boolean) });
   const url = await server.listen();
+  const close = server.close.bind(server);
+  server.close = async () => { try { await close(); } finally { controller.close(); } };
   return { server, url };
 }

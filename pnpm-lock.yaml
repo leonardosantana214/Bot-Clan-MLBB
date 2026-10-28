@@ -105,9 +105,22 @@ importers:
 
   packages/control-protocol:
     dependencies:
+      '@aerobot/scout':
+        specifier: workspace:*
+        version: link:../scout
       '@aerobot/core':
         specifier: workspace:*
         version: link:../core
+      zod:
+        specifier: ^3.24.2
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.5
+
+  packages/scout:
+    dependencies:
       zod:
         specifier: ^3.24.2
         version: 3.25.76
@@ -196,6 +209,9 @@ importers:
 
   packages/whatsapp-baileys:
     dependencies:
+      '@aerobot/scout':
+        specifier: workspace:*
+        version: link:../scout
       '@aerobot/community':
         specifier: workspace:*
         version: link:../community

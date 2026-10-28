@@ -1,3 +1,4 @@
+import { LeadershipResultSchema, type LeadershipQuery, type LeadershipAction } from './schemas.js';
 import { z } from 'zod';
 const StartedSchema = z.object({ started: z.boolean() });
 const DisconnectedSchema = z.object({ disconnected: z.boolean() });
@@ -62,6 +63,8 @@ export class ControlClient {
   startPairing(o: CommandOptions = {}) { return this.call('startPairing', {}, StartedSchema, { key: o.idempotencyKey ?? randomUUID() }); }
   disconnectSession(confirm: true, o: CommandOptions = {}) { return this.call('disconnectSession', { confirm }, DisconnectedSchema, { key: o.idempotencyKey ?? randomUUID() }); }
   setGroupRoles(roles: GroupRoles, o: CommandOptions = {}) { return this.call('setGroupRoles', roles, GroupRolesResultSchema, { key: o.idempotencyKey ?? randomUUID() }); }
+  leadershipQuery(query: LeadershipQuery) { return this.call('leadershipQuery', query, LeadershipResultSchema); }
+  leadershipAction(action: LeadershipAction, o: CommandOptions = {}) { return this.call('leadershipAction', action, LeadershipResultSchema, { key: o.idempotencyKey ?? randomUUID() }); }
   getOverview(): Promise<Overview> { return this.call('getOverview', {}, OverviewSchema); }
   getHostState(): Promise<HostState> { return this.call('getHostState', {}, HostStateSchema); }
   listGroups(): Promise<GroupRoute[]> { return this.call('listGroups', {}, GroupRouteSchema.array()); }

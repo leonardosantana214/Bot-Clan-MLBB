@@ -1,3 +1,4 @@
+import { CandidateSchema } from '@aerobot/scout/schemas';
 import { z } from 'zod';
 
 export const SCHEMA_VERSION = 1 as const;
@@ -23,11 +24,11 @@ const base = {
 };
 const empty = z.object({}).strict();
 
-export const MUTATING_TYPES = ['startPairing', 'disconnectSession', 'setGroupRoles', 'setResponsesPaused', 'setMaintenanceMode', 'setGroupModules', 'requestExport'] as const;
+export const MUTATING_TYPES = ['startPairing', 'disconnectSession', 'setGroupRoles', 'setResponsesPaused', 'setMaintenanceMode', 'setGroupModules', 'requestExport', 'leadershipAction'] as const;
 export type MutatingType = (typeof MUTATING_TYPES)[number];
 export function isMutating(type: string): type is MutatingType { return (MUTATING_TYPES as readonly string[]).includes(type); }
 
-export const WhatsAppGroupSchema = z.object({ id: z.string().regex(/^.+@g\.us$/), name: z.string().max(256) }).strict();
+export const WhatsAppGroupSchema = z.object({ id: z.string().regex(/^.+@g\.us$/), name: z.string().max(256), memberCount: z.number().int().nonnegative().optional() }).strict();
 export const GroupRolesSchema = z.object({ chatGroupId: WhatsAppGroupSchema.shape.id.optional(), adminGroupId: WhatsAppGroupSchema.shape.id.optional() }).strict();
 export const GroupRolesResultSchema = GroupRolesSchema.extend({ restartRequired: z.boolean(), message: z.string() });
 export const ConnectionSchema = z.discriminatedUnion('state', [
@@ -42,7 +43,39 @@ export type WhatsAppGroup = z.infer<typeof WhatsAppGroupSchema>;
 export type GroupRoles = z.infer<typeof GroupRolesSchema>;
 export type GroupRolesResult = z.infer<typeof GroupRolesResultSchema>;
 
+/** Versioned administrative operations, authenticated and audited by ControlServer. */
+export const LeadershipQuerySchema = z.object({
+  schemaVersion: z.literal(1), section: z.enum(['members', 'analytics', 'star', 'moderation', 'backup', 'scout', 'settings', 'export']),
+  fileName: z.enum(['members_v1.csv','xp_transactions_v1.csv','audit_log_v1.csv','rankings_v1.csv','warnings_v1.csv','star_scores_v1.csv','scout_v1.csv','level_ups_v1.csv','command_logs_v1.csv','clan_members_v1.csv','xp_ranking_v1.csv','moderation_audit_v1.csv']).optional(),
+  offset: z.number().int().nonnegative().max(1000000000).optional(),
+  search: z.string().max(120).optional(), memberId: z.string().max(128).optional(),
+  start: z.number().int().nonnegative().optional(), end: z.number().int().positive().optional(),
+  status: z.string().max(40).optional(), level: z.number().int().nonnegative().optional(),
+  groupId: z.string().max(128).optional(), role: z.string().max(30).optional(), minEvaluation: z.number().min(0).max(10).optional(),
+  period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional()
+}).strict().refine(v => v.start === undefined || v.end === undefined || v.start < v.end);
+const reason = z.string().trim().min(3).max(1000);
+export const XpSettingsSchema = z.object({ schemaVersion: z.literal(1), enabled: z.boolean(), award: z.number().int().min(1).max(1000), minIntervalMs: z.number().int().min(0).max(86400000), dailyCap: z.number().int().min(0).max(100000) }).strict();
+export const LeadershipActionSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('settingsSave'), xp: XpSettingsSchema }).strict(),
+  z.object({ action: z.literal('scoutSave'), candidate: CandidateSchema, confirm: z.literal(true) }).strict(),
+  z.object({ action: z.literal('scoutNote'), candidateId: z.string().min(1).max(128), reason, confirm: z.literal(true) }).strict(),
+  z.object({ action: z.literal('warn'), memberId: z.string().min(1).max(128), reason, confirm: z.literal(true) }).strict(),
+  z.object({ action: z.literal('starScore'), memberId: z.string().min(1).max(128), category: z.enum(['atividade','partidas','rising','comunidade','fairplay']), points: z.number().int().min(-100).max(100).refine(n => n !== 0), reason, confirm: z.literal(true) }).strict(),
+  z.object({ action: z.literal('starClose'), period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/), confirm: z.literal(true) }).strict(),
+  z.object({ action: z.literal('starDraw'), period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/), confirm: z.literal(true) }).strict(),
+  z.object({ action: z.literal('starApprove'), period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/), reason, confirm: z.literal(true) }).strict(),
+  z.object({ action: z.literal('backupCreate'), confirm: z.literal(true) }).strict(),
+  z.object({ action: z.literal('powerbiExport'), start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), endExclusive: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).strict()
+]);
+export type LeadershipQuery = z.infer<typeof LeadershipQuerySchema>;
+export type LeadershipAction = z.infer<typeof LeadershipActionSchema>;
+export const LeadershipResultSchema = z.object({ schemaVersion: z.literal(1), rows: z.array(z.record(z.unknown())), unavailable: z.array(z.string()).default([]) }).strict();
+export type LeadershipResult = z.infer<typeof LeadershipResultSchema>;
+
 export const ControlRequestSchema = z.discriminatedUnion('type', [
+  z.object({ ...base, type: z.literal('leadershipQuery'), payload: LeadershipQuerySchema }),
+  z.object({ ...base, type: z.literal('leadershipAction'), idempotencyKey: Id, payload: LeadershipActionSchema }),
   z.object({ ...base, type: z.literal('login'), payload: z.object({ password: z.string().min(1).max(1024) }).strict() }),
   z.object({ ...base, type: z.literal('logout'), payload: z.object({ all: z.boolean().optional() }).strict() }),
   z.object({ ...base, type: z.literal('renewSession'), payload: empty }),
@@ -74,7 +107,7 @@ export const HostStateSchema = z.object({
   responsesPaused: z.boolean(), maintenanceMode: z.boolean()
 });
 export const GroupRouteSchema = z.object({
-  id: z.string(), name: z.string(), routeTag: z.string(), memberCount: z.number().int().nonnegative(),
+  id: z.string(), name: z.string(), routeTag: z.string(), memberCount: z.number().int().nonnegative().nullable(),
   dailyMessages: z.number().int().nonnegative(), modules: GroupModulesSchema
 });
 export const RankEntrySchema = z.object({

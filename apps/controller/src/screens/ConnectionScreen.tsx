@@ -1,3 +1,4 @@
+import { GroupsScreen } from './GroupsScreen';
 import React, { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'qrcode';
@@ -74,6 +75,7 @@ export function ConnectionScreen({ api }: { api: ControllerApi }): React.JSX.Ele
 }
 
 export function WhatsAppGroupsScreen({ api, demo }: { api: ControllerApi; demo: boolean }): React.JSX.Element {
+  const [modules, setModules] = useState(false);
   const [groups, setGroups] = useState<WhatsAppGroup[]>([]);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -88,7 +90,9 @@ export function WhatsAppGroupsScreen({ api, demo }: { api: ControllerApi; demo: 
     catch (e) { setMessage(e instanceof Error ? e.message : 'Falha ao salvar papéis.'); }
     finally { setBusy(false); }
   };
+  if(modules) return <View style={{flex:1}}><Button label="Voltar aos pap?is" variant="outline" onPress={()=>setModules(false)}/><GroupsScreen api={api} refreshSignal={0}/></View>;
   return <ScrollView contentContainerStyle={styles.container}>
+    <Button label="M?dulos e atividade por grupo" onPress={()=>setModules(true)}/>
     <Text style={styles.heading}>Grupos</Text>{demo ? <Badge label="DEMONSTRAÇÃO" tone="info" /> : null}<Text style={styles.text}>CHAT e ADM devem ser distintos. Comandos administrativos só funcionam na rota ADM.</Text>
     {!groups.length ? <Text style={styles.text}>Nenhum grupo disponível. Conecte o bot e entre nos grupos de teste.</Text> : null}
     {groups.map(group => <Card key={group.id} title={group.name}><Text style={styles.text}>{group.id}</Text><View>

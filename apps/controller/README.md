@@ -55,13 +55,27 @@ corepack pnpm --filter @aerobot/whatsapp-baileys start
 
 Não grave senha/hash no repositório. Para LAN use bind e origens explícitas do exemplo anterior. SIGINT/SIGTERM fecham a API com o Host.
 
-## Recursos e limites
+## Operação da liderança
 
-- Estado, conexão, fila e envios recentes vêm do adapter. Pausa chama `adapter.setPaused`, descarta respostas pendentes e mantém a contabilização de mensagens.
-- Ranking usa `rankByPeriod` e ledger SQLite: geral, semanal e mensal. Diário indisponível. UI mostra geral; nível deriva do XP total. Função MLBB, elo e ofensiva aparecem como indisponíveis.
-- Exportações de membros, ranking e auditoria usam `@aerobot/exports` para escapar CSV. Retornam prévia limitada a 8192 caracteres e total de linhas; não salvam arquivo completo. Membros não incluem identificadores WhatsApp. Auditoria inclui eventos administrativos persistidos.
-- Métricas agregadas, grupos/módulos editáveis, manutenção, logs de execução de comandos e configurações globais não têm implementação correspondente no Host atual: erro `unsupported`, exibido como indisponível, sem dados inventados.
-- Sessão expirada retorna ao login. Erros de rede/login em pt-BR sem detalhes internos.
+O modo real (inclusive `control-demo`) expõe **Mais → Liderança**: Membros com busca/status/nível/período e histórico individual de XP; Analytics com filtros, série SVG de XP, atividade e top membros; Star Member com categorias/elegibilidade, pontos justificados, fechamento, sorteio com seed/compromisso e aprovação; Advertências com flags e registros por membro; Backup; Scout; política de XP. A navegação principal continua com cinco destinos. Ajustes e sair ficam também em Mais.
+
+Todas as novas consultas e alterações exigem a sessão administrativa do protocolo v1 e auditoria. Alterações usam idempotência. Advertir, pontuar, fechar mês, sortear, aprovar, salvar Scout e anexar notas exigem confirmação. Erros não revelam caminhos nem mensagens internas. Somente a liderança que possui a senha do Controller pode operar essas funções.
+
+**Manutenção** é persistida em control.sqlite e suspende o processamento comum nas rotas CHAT; somente mensagens do grupo ADM configurado continuam sendo processadas. Não identifica administradores individuais do WhatsApp: a autorização segue a rota ADM existente. Ao ativar, respostas já enfileiradas são descartadas; respostas novas são verificadas também antes do envio. A contabilização de recebidos continua. Pausa de respostas é o controle independente do adapter; não é automaticamente removida ao sair da manutenção.
+
+**Grupos → Módulos e atividade** usa nomes reais do adapter, contagem de participantes quando fornecida (caso contrário, Indisponível) e contagem diária do Host. Boas-vindas, XP, comandos MLBB e moderação assistida são persistidos por grupo e aplicados na composição/roteamento. Apenas rotas ativas podem ser alteradas; configurar papéis exige reiniciar. Scrim permanece indisponível porque não há serviço de alertas. Moderação registra flags, sem apagar mensagens ou punir automaticamente. XP exige módulo do grupo e política global habilitados; alterações da política passam por Zod e exigem reiniciar o Host.
+
+O Host conta eventos recebidos do adapter em control_daily (grupo/dia São Paulo), incluindo grupos sem rota, sem armazenar conteúdo. A coleta começa nesta versão; não há preenchimento retroativo de mensagens antigas. control_seen guarda apenas SHA-256 de grupo+ID para deduplicar; reinício não duplica a contagem. O Baileys envia metadados mínimos de recebimento também para mídias sem texto; não entrega conteúdo ao contador. Outros adapters sem essa capacidade contam apenas os eventos que entregam em onMessage. Logs próprios registram apenas nome do comando, grupo, instante e sucesso/erro da execução/envio. Comandos desconhecidos, bloqueados por rota/módulo/manutenção ou descartados pelo rate limit não são execuções. Erros de negócio retornados como texto pelo serviço contam como execução concluída; exceções e argumentos inválidos contam como erro.
+
+Ranking diário usa limites locais de São Paulo. Analytics mostra explicitamente que atividade por membro é baseada em entradas de XP e que a contagem de mensagens é separada por grupo/dia. O ledger atual não permite relacionar todo XP a grupo. Level-ups permanecem indisponíveis até integrar o contrato `level_events`. Persona é exposta somente quando houver configuração no módulo responsável; a edição de persona depende da outra tarefa e não foi inventada aqui.
+
+Backup usa @aerobot/maintenance com metadados sem caminho, sinaliza ausência/idade superior a 24h e não faz rotação destrutiva pelo Controller. Cria cópias separadas de bot.sqlite (incluindo Star, comunidade e Scout) e control.sqlite (configuração, contagens e logs). As duas cópias são verificadas individualmente; não são uma transação única entre bancos. O status alerta quando qualquer uma estiver ausente ou antiga. Sem AEROBOT_BACKUP_PASSPHRASE, os backups não são criptografados, conforme indicado na tela. Nenhuma chave é enviada ao app. Restauração continua fora do Controller.
+
+O Scout armazena somente dados informados pela liderança; [escopo a confirmar](../../packages/scout/README.md). Para editar cadastro existente, forneça seu ID interno e reentre ID MLBB/servidor: a consulta retorna apenas versões mascaradas. Notas são append-only com autor/data e triggers. Critérios são definidos pela liderança com notas 0–10.
+
+Exportações analíticas completas são gravadas no Host em AEROBOT_EXPORT_DIR ou na pasta exports dentro da sessão. O app oferece prévia limitada a 8192 caracteres por arquivo e download completo autenticado em blocos no navegador. No app nativo, use a prévia ou acesse a pasta no Host. Chaves pseudonimizadas, IDs mascarados e proteção contra fórmulas. Consulte [POWERBI.md](POWERBI.md) e o esquema em packages/exports/README.md. Exportações administrativas existentes continuam por prévia CSV.
+
+O `control-demo` sem WhatsApp semeia membros, histórico de XP, contagens, logs, pontos Star, advertência e candidato Scout sintéticos, usando os mesmos contratos e serviços. Deixe o toggle de mock local desligado para testar o protocolo real. Os novos recursos não são replicados no mock local antigo. Para consultar grupos, gere o pareamento fictício e aguarde 15 segundos. A pasta temporária é apagada ao encerrar normalmente o demo.
 
 ## Build web
 
@@ -105,3 +119,7 @@ Na raiz: `corepack pnpm typecheck`, `corepack pnpm lint`, `corepack pnpm test`, 
 ## Identidade visual
 
 O sistema AERO, tokens, fontes locais e componentes estão documentados em [DESIGN.md](DESIGN.md).
+
+## Ambiente offline de verificação
+
+Quando as dependências instaladas forem reutilizadas por links para uma árvore externa ao worktree, Metro precisa vê-la: configure `AEROBOT_METRO_DEPENDENCY_ROOT` com a raiz dessa árvore somente no terminal de build/web. Uma instalação local normal não precisa dessa variável. A opção não muda o protocolo nem as fontes do app.

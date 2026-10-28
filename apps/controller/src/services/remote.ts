@@ -1,3 +1,4 @@
+import type { LeadershipQuery, LeadershipAction } from '@aerobot/control-protocol/browser';
 import type { GroupRoles } from './api';
 import { ControlClient, ControlClientError, HttpTransport } from '@aerobot/control-protocol/browser';
 import type { ControllerApi, ModuleKey, ExportDataset, BotSettings, XpRankEntry, SimulationMode } from './api';
@@ -6,6 +7,7 @@ import type { AuthProvider, AuthSession, AuthResult } from './auth';
 export function remoteError(error: unknown): string {
   if (error instanceof ControlClientError) {
     if (error.code === 'insecure_network' || error.code === 'invalid_groups') return error.message;
+    if (error.code === 'invalid_request') return 'Dados inválidos. Revise os campos e a confirmação.';
     if (error.code === 'unsupported') return 'Indisponível: operação não suportada neste Host.';
     if (error.code === 'invalid_credentials') return 'Senha inválida.';
     if (error.code === 'unauthenticated' || error.code === 'not_logged_in') return 'Sessão expirada. Entre novamente.';
@@ -17,6 +19,8 @@ export function remoteError(error: unknown): string {
 export class RemoteControllerApi implements ControllerApi {
   constructor(readonly client: ControlClient) {}
   private async run<T>(work: () => Promise<T>): Promise<T> { try { return await work(); } catch (error) { throw new Error(remoteError(error)); } }
+  leadershipQuery(query: LeadershipQuery) { return this.run(() => this.client.leadershipQuery(query)); }
+  leadershipAction(action: LeadershipAction) { return this.run(() => this.client.leadershipAction(action)); }
   getConnection() { return this.run(() => this.client.getConnection()); }
   startPairing() { return this.run(() => this.client.startPairing()); }
   disconnectSession(confirm: true) { return this.run(() => this.client.disconnectSession(confirm)); }
@@ -30,7 +34,7 @@ export class RemoteControllerApi implements ControllerApi {
   setMaintenanceMode(enabled: boolean) { return this.run(() => this.client.setMaintenanceMode(enabled)); }
   getGroups() { return this.run(() => this.client.listGroups()); }
   toggleGroupModule(id: string, key: ModuleKey, enabled: boolean) { return this.run(() => this.client.setGroupModules(id, { [key]: enabled })); }
-  getXpRanking(): Promise<XpRankEntry[]> { return this.run(async () => (await this.client.getRanking('all_time')).map(r => ({ ...r, mlbbRole: 'Indisponível', mythicTier: 'Indisponível', nextLevelXp: 100 * (r.level + 1) ** 2, streakDays: null }))); }
+  getXpRanking(period: 'daily'|'weekly'|'monthly'|'all_time' = 'all_time'): Promise<XpRankEntry[]> { return this.run(async () => (await this.client.getRanking(period)).map(r => ({ ...r, mlbbRole: 'Indisponível', mythicTier: 'Indisponível', nextLevelXp: 100 * (r.level + 1) ** 2, streakDays: null }))); }
   exportCsv(dataset: ExportDataset) { return this.run(() => this.client.requestExport(dataset)); }
   async getSettings(): Promise<BotSettings> { throw new Error('Indisponível: configurações não suportadas pelo protocolo.'); }
   async updateSettings(): Promise<BotSettings> { throw new Error('Indisponível: configurações não suportadas pelo protocolo.'); }

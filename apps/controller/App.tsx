@@ -1,3 +1,4 @@
+import { LeadershipScreen } from './src/screens/LeadershipScreen';
 import { AeroPressable as Pressable } from './src/components/AeroPressable';
 import React, { useCallback, useState } from 'react';
 import {
@@ -54,7 +55,7 @@ const TABS: ReadonlyArray<TabItem> = [
   },
   {
     key: 'settings',
-    label: 'Ajustes',
+    label: 'Mais',
     accessibilityLabel: 'Aba Exportações CSV e Configurações'
   }
 ];
@@ -76,6 +77,7 @@ export default function App(): React.JSX.Element {
     'normal'
   );
   const [refreshSignal, setRefreshSignal] = useState<number>(0);
+  const [moreLeadership, setMoreLeadership] = useState(true);
   const [hostSummary, setHostSummary] = useState<HostState | null>(null);
 
   const handleSelectSimMode = (mode: SimulationMode): void => {
@@ -196,7 +198,9 @@ export default function App(): React.JSX.Element {
             />
           ) : null }
 
-          { activeTab === 'settings' ? (
+          { activeTab === 'settings' ? <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm }}><Pressable onPress={() => setMoreLeadership(true)}><Text style={{color: colors.gold}}>Liderança</Text></Pressable><Pressable onPress={() => setMoreLeadership(false)}><Text style={{color: colors.gold}}>Ajustes e sair</Text></Pressable></View> : null }
+          { activeTab === 'settings' && moreLeadership ? <LeadershipScreen api={api}/> : null }
+          { activeTab === 'settings' && !moreLeadership ? (
             <SettingsScreen
               api={ api }
               session={ session }

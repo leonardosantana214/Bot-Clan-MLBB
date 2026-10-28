@@ -13,7 +13,7 @@ export interface AdapterSocket {
   sendMessage(groupId: string, text: string): Promise<void>;
   requestPairingCode(phone: string): Promise<string>;
   logout?(): Promise<void>;
-  listGroups?(): Promise<{ id: string; name: string }[]>;
+  listGroups?(): Promise<{ id: string; name: string; memberCount?: number }[]>;
   close(): Promise<void>;
 }
 export interface SocketFactory { create(sessionDir: string): Promise<AdapterSocket>; clearSession?(sessionDir: string): Promise<void> }
