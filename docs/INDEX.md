@@ -40,4 +40,8 @@ Legenda de status: **Confirmado** (decisão da liderança) · **Proposta / Pende
 - [ADR-0005 XP como ledger append-only](decisions/ADR-0005-xp-ledger.md)
 - [ADR-0006 Escopo simplificado (decisão da liderança)](decisions/ADR-0006-simplified-scope.md)
 
-Documentos do plano original ainda **não** criados por falta de conteúdo real (evitar arquivos vazios): STAKEHOLDERS, USER_STORIES, FEATURE_CATALOG, RUNBOOK, BACKUP_AND_RESTORE, INCIDENT_RESPONSE, MONITORING, DISTRIBUTION. Serão criados nas etapas em que houver decisões reais.
+## Operação e produto
+- [Runbook](operations/RUNBOOK.md) · [Backup e restauração](operations/BACKUP_AND_RESTORE.md) · [Incidentes](operations/INCIDENT_RESPONSE.md) · [Monitoramento](operations/MONITORING.md) · [Distribuição](operations/DISTRIBUTION.md)
+- [Controle de acesso](security/ACCESS_CONTROL.md) · [Catálogo de funcionalidades](product/FEATURE_CATALOG.md) · [PoC-1 Termux](mobile/POC1_TERMUX.md)
+
+Ainda **não** criados por falta de conteúdo real: STAKEHOLDERS, USER_STORIES.

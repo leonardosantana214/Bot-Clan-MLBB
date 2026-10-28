@@ -13,6 +13,12 @@
 - `/rank`, `/top` e `/ajuda` dinâmico no core (PR #8).
 - `apps/controller`: UI Expo (mobile + PWA) com dados de demonstração (PR #5).
 - Host manual (`run.ts`) registra todos os comandos.
+- `@aerobot/star-member`: Membro Estrela com pontuação auditável, fechamento imutável e sorteio verificável (PR #10).
+- `@aerobot/control-protocol`: protocolo Host–Controller, login scrypt, sessões e idempotência (PR #11).
+- `@aerobot/community`: entrada/saída, boas-vindas e moderação assistida (PR #12).
+- `@aerobot/maintenance`: backup, restauração e retenção (PR #13).
+- Host liga esses pacotes; comandos administrativos só no grupo ADM (PR #14).
+- Documentação operacional e guia da PoC-1 (Termux).
 
 ### Alterado
 - Teto diário de XP passa a usar o dia em America/Sao_Paulo.
