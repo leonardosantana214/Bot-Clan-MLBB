@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "AeroBot Controller",
+    "slug": "aerobot-controller",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#090A0F",
+    "primaryColor": "#DC143C",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.aeroclan.aerobot.controller"
+    },
+    "android": {
+      "package": "com.aeroclan.aerobot.controller"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "name": "AeroBot Controller",
+      "shortName": "AeroBot",
+      "lang": "pt-BR",
+      "scope": "/",
+      "themeColor": "#090A0F",
+      "backgroundColor": "#090A0F",
+      "display": "standalone",
+      "orientation": "portrait"
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-font"
+    ]
+  }
+}
