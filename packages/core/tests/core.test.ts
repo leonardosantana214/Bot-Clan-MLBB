@@ -25,7 +25,7 @@ describe('SIMPLE core', () => {
     expect(await f.entries()).toHaveLength(1);
     expect(f.adapter.sent).toHaveLength(1);
   });
-  it('enforces interval, repetition, partial daily cap, and UTC rollover', async () => {
+  it('enforces interval, repetition, partial daily cap, and day rollover', async () => {
     const f = fixture();
     await f.send('/registrar Player');
     await f.send('first');
