@@ -41,3 +41,14 @@ it('não inicia sem ambas variáveis e não inventa recursos ausentes', async ()
     await expect(new HostController(db, new Adapter()).getOverview()).resolves.toMatchObject({ clanName: 'AERO', hostStatus: 'online', totalMembers: 0, messagesToday: 0 });
   } finally { db.close(); }
 });
+it('aceita a senha simples em AEROBOT_ADMIN_PASSWORD (hash só em memória) e recusa a errada', async () => {
+  const storage = new SqliteStorage(':memory:');
+  const control = await startControlServer(storage, new Adapter(), { AEROBOT_CONTROL_PORT: '0', AEROBOT_ADMIN_PASSWORD: 'senha-simples-de-teste' });
+  try {
+    expect(control).toBeDefined();
+    await expect(new ControlClient(new HttpTransport(control!.url)).login('outra-senha-qualquer')).rejects.toMatchObject({ code: 'invalid_credentials' });
+    const client = new ControlClient(new HttpTransport(control!.url));
+    await expect(client.login('senha-simples-de-teste')).resolves.toMatchObject({ sessionId: expect.any(String) });
+    await client.logout();
+  } finally { await control?.server.close(); storage.close(); }
+});
