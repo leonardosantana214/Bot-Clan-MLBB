@@ -16,3 +16,9 @@ Status: **Confirmado** (palavras do responsável do projeto). Substitui, onde ho
 - **Controller sem login = qualquer pessoa com o APK controla o bot.** Proposta mínima: pareamento por **chave secreta** gerada no Host (QR/código) que o Controller guarda no aparelho; revogável pelo Host; ações destrutivas pedem confirmação. Sem contas, sem RBAC. **Proposta / Pendente** — confirmar com a liderança.
 - **Pontos do clã no MLBB:** não há evidência de API que exponha pontos de clã. Plano: spike no provedor; fallback = ADM lança pontos manualmente (com ledger) ou a partir de prints. Não prometer automação.
 - Se o Controller não tem conta, o canal Controller↔Host pode ser simplificado (ver SYNC_STRATEGY; Supabase pode ser desnecessário se usarmos relay simples). Decidir após PoC.
+
+## Atualização (2026-10-28, segunda rodada)
+- **Login:** a liderança escolheu **login simples** no Controller (substitui a ideia de "sem login"). Desenho mínimo proposto: uma senha de administração definida no Host e verificada por ele; sem contas individuais nem papéis por enquanto. **Proposta / Pendente** os detalhes.
+- **Pontos do clã do MLBB:** removidos do escopo inicial. Nenhuma pontuação de clã automática; se necessário, lançamento manual pelos ADMs no futuro.
+- **Repositório:** público, aprovado para publicação.
+- **iOS sem pagar US$ 99/ano:** o Host é só Android. Para o Controller no iPhone as opções sem taxa são: (a) versão **web/PWA** instalável pela tela inicial do Safari; (b) sideload com Apple ID gratuito (app expira a cada 7 dias, exige reinstalar via AltStore/Sideloadly). Distribuição estável e via TestFlight exige a conta paga. **Não verificado** nesta sessão: confirmar condições atuais da Apple.
