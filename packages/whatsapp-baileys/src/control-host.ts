@@ -8,7 +8,7 @@ import { promisify } from 'node:util';
 import { join } from 'node:path';
 import { GroupRolesSchema, InvalidGroupRoles, type GroupRoles, type WhatsAppConnection, type WhatsAppGroup } from '@aerobot/control-protocol';
 import { calculateLevel, rankByPeriod, rankPeriodBounds } from '@aerobot/core';
-import { ControlServer, HttpControlServer, UnsupportedControlOperation, type HostControlPort, type Overview, type RankingPeriod, type ExportDataset, type HostState } from '@aerobot/control-protocol';
+import { ControlServer, HttpControlServer, hashPassword, UnsupportedControlOperation, type HostControlPort, type Overview, type RankingPeriod, type ExportDataset, type HostState } from '@aerobot/control-protocol';
 import { csv, repositorySource, atomicWrite } from '@aerobot/exports';
 import type { SqliteStorage } from '@aerobot/storage-sqlite';
 
@@ -126,13 +126,17 @@ export class HostController implements HostControlPort {
 
 }
 export async function startControlServer(storage: SqliteStorage, adapter: ControlAdapter, env: NodeJS.ProcessEnv = process.env) {
-  if (!env.AEROBOT_CONTROL_PORT || !env.AEROBOT_ADMIN_PASSWORD_HASH) return undefined;
+  if (!env.AEROBOT_CONTROL_PORT) return undefined;
+  // Simple setup: AEROBOT_ADMIN_PASSWORD is hashed in memory at start-up (never written anywhere).
+  // AEROBOT_ADMIN_PASSWORD_HASH remains supported for operators who prefer to provide a ready hash.
+  const adminPasswordHash = env.AEROBOT_ADMIN_PASSWORD_HASH ?? (env.AEROBOT_ADMIN_PASSWORD ? await hashPassword(env.AEROBOT_ADMIN_PASSWORD) : undefined);
+  if (!adminPasswordHash) return undefined;
   const port = Number(env.AEROBOT_CONTROL_PORT);
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('AEROBOT_CONTROL_PORT inválida.');
   const bind = env.AEROBOT_CONTROL_HOST ?? '127.0.0.1';
   if (bind !== '127.0.0.1' && bind !== '0.0.0.0') throw new Error('AEROBOT_CONTROL_HOST inválido.');
   const controller = new HostController(storage, adapter, env);
-  const protocol = new ControlServer({ host: controller, adminPasswordHash: env.AEROBOT_ADMIN_PASSWORD_HASH, audit: storage.audit, clock: { now: Date.now } });
+  const protocol = new ControlServer({ host: controller, adminPasswordHash, audit: storage.audit, clock: { now: Date.now } });
   const server = new HttpControlServer(protocol, { port, host: bind, trustNetwork: env.AEROBOT_CONTROL_TRUST_NETWORK === '1', origins: (env.AEROBOT_CONTROL_ORIGINS ?? '').split(',').map(s => s.trim()).filter(Boolean) });
   const url = await server.listen();
   const close = server.close.bind(server);

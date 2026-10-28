@@ -12,7 +12,7 @@ import qrcode from 'qrcode-terminal';
 
 const privateOutput = (value: string) => { if (value) process.stdout.write(`${value}\n`); };
 const phone = process.env.AEROBOT_PAIRING_PHONE;
-const serviceMode = Boolean(process.env.AEROBOT_CONTROL_PORT && process.env.AEROBOT_ADMIN_PASSWORD_HASH);
+const serviceMode = Boolean(process.env.AEROBOT_CONTROL_PORT && (process.env.AEROBOT_ADMIN_PASSWORD_HASH || process.env.AEROBOT_ADMIN_PASSWORD));
 if (!serviceMode && !process.stdout.isTTY) throw new Error('Pairing requires a private interactive terminal');
 const adapter = new BaileysAdapter(new BaileysSocketFactory(), {
   pairing: serviceMode ? { mode: 'qr', onQr: () => undefined } : phone ? { mode: 'code', phone, onCode: privateOutput } : { mode: 'qr', onQr: value => qrcode.generate(value, { small: true }) },

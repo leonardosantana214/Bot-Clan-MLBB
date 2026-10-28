@@ -40,20 +40,17 @@ Bind padrão: `127.0.0.1`. Somente `AEROBOT_CONTROL_HOST=0.0.0.0` habilita LAN, 
 
 ## Host real com WhatsApp
 
-`run.ts` só inicia a API quando `AEROBOT_CONTROL_PORT` e `AEROBOT_ADMIN_PASSWORD_HASH` estão definidos. Nesse modo serviço, dispensa TTY e nunca imprime QR/código no terminal. Sem controle, mantém o pareamento no terminal privado com TTY. Gere o hash sem gravar a senha:
+`run.ts` só inicia a API quando `AEROBOT_CONTROL_PORT` e a senha (`AEROBOT_ADMIN_PASSWORD`) estão definidos. Nesse modo serviço, dispensa TTY e nunca imprime QR/código no terminal. Sem controle, mantém o pareamento no terminal privado com TTY. A senha tem no mínimo 10 caracteres e o Host a transforma em hash só na memória ao iniciar:
 
 ```powershell
-$secret = Read-Host 'Senha administrativa (mínimo 10 caracteres)' -AsSecureString
-$plain = [System.Net.NetworkCredential]::new('', $secret).Password
-$env:AEROBOT_ADMIN_PASSWORD_HASH = ($plain | corepack pnpm --silent --filter @aerobot/control-protocol hash-password | Out-String).Trim()
-Remove-Variable plain, secret
+$env:AEROBOT_ADMIN_PASSWORD = 'sua-senha-aqui'
 $env:AEROBOT_CONTROL_PORT = '8787'
 $env:AEROBOT_CONTROL_HOST = '127.0.0.1'
 $env:AEROBOT_CONTROL_ORIGINS = 'http://localhost:8081'
 corepack pnpm --filter @aerobot/whatsapp-baileys start
 ```
 
-Não grave senha/hash no repositório. Para LAN use bind e origens explícitas do exemplo anterior. SIGINT/SIGTERM fecham a API com o Host.
+Quem preferir pode informar um hash pronto em `AEROBOT_ADMIN_PASSWORD_HASH` (gerado por `hash-password` do pacote de protocolo). Não grave senha/hash no repositório (ele é público). Para LAN use bind e origens explícitas do exemplo anterior. SIGINT/SIGTERM fecham a API com o Host.
 
 ## Operação da liderança
 
