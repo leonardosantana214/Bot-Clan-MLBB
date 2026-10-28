@@ -8,7 +8,10 @@ export function localDay(at = Date.now()) { return new Intl.DateTimeFormat('en-C
 /** Shared by routing and control through SQLite, independent of core storage migrations. */
 export class ControlRuntime {
   readonly db: DatabaseSync;
-  constructor(sessionDir: string) {
+  private readonly defaults: GroupModules;
+  /** `defaults` lets the host seed per-group defaults (e.g. xpSystem follows AEROBOT_XP_ENABLED); saved settings still win. */
+  constructor(sessionDir: string, defaults: Partial<GroupModules> = {}) {
+    this.defaults = { ...defaultModules, ...defaults };
     this.db = new DatabaseSync(join(sessionDir, 'control.sqlite'));
     this.db.exec(`PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL;
       CREATE TABLE IF NOT EXISTS schema_version(version INTEGER PRIMARY KEY);
@@ -20,7 +23,7 @@ export class ControlRuntime {
   }
   get<T>(key: string, fallback: T): T { const r=this.db.prepare('SELECT payload FROM control_config WHERE key=?').get(key); return r ? JSON.parse(String(r.payload)) as T : fallback; }
   set(key: string, value: unknown) { this.db.prepare('INSERT INTO control_config VALUES (?,?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload').run(key,JSON.stringify(value)); }
-  modules(group: string) { return GroupModulesSchema.parse(this.get('modules:'+group,defaultModules)); }
+  modules(group: string) { return GroupModulesSchema.parse(this.get('modules:'+group,this.defaults)); }
   patch(group: string, patch: GroupModulesPatch) { const modules=GroupModulesSchema.parse({...this.modules(group),...patch}); this.set('modules:'+group,modules); return modules; }
   count(message: IncomingMessage, at: number) {
     if(message.fromMe) return;

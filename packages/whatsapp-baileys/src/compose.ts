@@ -32,7 +32,7 @@ export function composeHost(options: HostOptions) {
   const clock = options.clock ?? { now: Date.now };
   const dbPath = join(options.sessionDir, 'bot.sqlite');
   const storage = new SqliteStorage(dbPath);
-  const controlRuntime = new ControlRuntime(options.sessionDir);
+  const controlRuntime = new ControlRuntime(options.sessionDir, { xpSystem: options.xpPolicy?.enabled === true });
   controlRuntime.set('activeRoles',{...(groupId ? {chatGroupId:groupId}:{}),...(adminGroupId ? {adminGroupId}: {})});
   let levelEvents: SqliteLevelEvents;
   try { levelEvents = new SqliteLevelEvents(dbPath, formula); } catch (error) { storage.close(); throw error; }
@@ -120,11 +120,12 @@ export function composeHost(options: HostOptions) {
       catch(error) { if(commandContext && !commandContext.logged) controlRuntime.command(commandContext.name,message.groupId,clock.now(),'error'); throw error; }
       finally { commandContext=undefined; }
     };
-    const observable = adapter as Partial<ObservableWhatsAppAdapter>;
-    const receiptAdapter=adapter as typeof adapter & {onReceivedMessage?(handler:(event:{id:string;groupId:string})=>void):()=>void};
-    const offReceipt=receiptAdapter.onReceivedMessage?.(event=>{enqueue(async()=>{controlRuntime.count({...event,senderId:'',text:'',fromMe:false},clock.now());});});
-    const offMessage = observable.onMessage?.call(adapter, message => { enqueue(() => receive(message)); });
-    const offMembership = community ? observable.onMembershipChange?.call(adapter, event => { enqueue(async () => { await community.membership.onMembershipChange(event); }); }) : undefined;
+    // Events come from the raw adapter: the persona wrapper only decorates outgoing text.
+    const observable = options.adapter as Partial<ObservableWhatsAppAdapter>;
+    const receiptAdapter=options.adapter as typeof options.adapter & {onReceivedMessage?(handler:(event:{id:string;groupId:string})=>void):()=>void};
+    const offReceipt=receiptAdapter.onReceivedMessage?.call(options.adapter,event=>{enqueue(async()=>{controlRuntime.count({...event,senderId:'',text:'',fromMe:false},clock.now());});});
+    const offMessage = observable.onMessage?.call(options.adapter, message => { enqueue(() => receive(message)); });
+    const offMembership = community ? observable.onMembershipChange?.call(options.adapter, event => { enqueue(async () => { await community.membership.onMembershipChange(event); }); }) : undefined;
     const timer = community ? setInterval(() => { enqueue(() => community.tick()); }, 15_000) : undefined;
     let closing: Promise<void> | undefined;
     return { storage, levelEvents, receive, async idle() { await pending; }, close(): Promise<void> {
