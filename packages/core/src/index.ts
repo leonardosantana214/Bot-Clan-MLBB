@@ -13,6 +13,8 @@ import { ping } from './application/commands/ping.js';
 import { ajuda } from './application/commands/ajuda.js';
 import { registrar } from './application/commands/registrar.js';
 import { perfil } from './application/commands/perfil.js';
+import { rank } from './application/commands/rank.js';
+import { top } from './application/commands/top.js';
 import { xp } from './application/commands/xp.js';
 export interface BotDependencies {
   adapter: WhatsAppAdapter; members: MemberRepository; routes: GroupRouteRegistry;
@@ -24,8 +26,10 @@ export interface BotDependencies {
 }
 export function createBot(deps: BotDependencies): Bot {
   const registry = new CommandRegistry(deps.routes, deps.adapter, deps.commandIntervalMs);
-  for (const command of [ping, ajuda, registrar, perfil, xp, ...(deps.extraCommands ?? [])]) registry.register(command);
+  for (const command of [ping, ajuda, registrar, perfil, xp, rank, top, ...(deps.extraCommands ?? [])]) registry.register(command);
   return new Bot(registry, new XpAntiflood(deps.members, deps.ledger, deps.clock, deps.xpPolicy), { ...deps, levelFormula: deps.levelFormula ?? defaultLevelFormula }, deps.seenMessages);
 }
 
 export * from './application/seen-messages.js';
+
+export * from './application/ranking.js';

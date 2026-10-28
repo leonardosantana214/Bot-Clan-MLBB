@@ -19,11 +19,15 @@ export interface ObservableWhatsAppAdapter extends WhatsAppAdapter {
   onConnectionState(handler: (state: ConnectionState) => void): () => void;
 }
 export interface MemberRepository {
+  /** Optional enumeration capability; legacy adapters remain valid. */
+  list?(): Promise<readonly Member[]>;
   findByIdentity(platformUserId: string): Promise<Member | undefined>;
   register(member: Member): Promise<boolean>;
 }
 export interface GroupRouteRegistry { find(groupId: string): Promise<GroupRoute | undefined> }
 export interface XpLedger {
+  /** All members, inclusive start and exclusive end, ordered by occurrence. */
+  listInRange?(start: number, end: number): Promise<readonly XpTransaction[]>;
   append(transaction: XpTransaction): Promise<boolean>;
   list(memberId: string): Promise<readonly XpTransaction[]>;
 }

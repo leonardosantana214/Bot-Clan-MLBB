@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createBot, FakeWhatsAppAdapter, InMemoryAuditLog, InMemoryGroupRouteRegistry, InMemoryMemberRepository, InMemorySeenMessageStore, InMemoryXpLedger, type Member, type XpTransaction } from '../../core/src/index.js';
+import { createBot, FakeWhatsAppAdapter, InMemoryAuditLog, InMemoryGroupRouteRegistry, InMemoryMemberRepository, InMemorySeenMessageStore, InMemoryXpLedger, rankByPeriod, rankPeriodBounds, type Member, type XpTransaction } from '../../core/src/index.js';
 import { SqliteStorage } from '../src/index.js';
 
 const member: Member = { id: 'synthetic-member', name: 'Synthetic', identities: [{ platformUserId: 'synthetic-user' }], status: 'active', registeredAt: 0 };
@@ -23,6 +23,26 @@ const factories = {
   'sqlite file': () => sqlite(tempPath())
 };
 for (const [name, factory] of Object.entries(factories)) describe(`storage contract: ${name}`, () => {
+  it('enumerates detached members and immutable interval entries, ranking signed deltas across local boundaries', async () => {
+    const s = factory();
+    expect(await s.members.list!()).toEqual([]);
+    expect(await s.ledger.listInRange!(0, 10)).toEqual([]);
+    await s.members.register(member);
+    await s.members.register({ ...member, id: 'second', registeredAt: 1, identities: [] });
+    const snapshot = await s.members.list!();
+    Object.assign(snapshot[0]!, { name: 'changed' });
+    expect((await s.members.list!())[0]).toEqual(member);
+    const { start, end } = rankPeriodBounds('semana', Date.parse('2026-11-02T03:00:00Z'));
+    for (const [id, at, amount] of [['end', end, 999], ['correction', end - 1, -3], ['start', start, 10], ['before', start - 1, 999]] as const) {
+      await s.ledger.append({ ...entry, id, sourceId: id, occurredAt: at, amount });
+    }
+    const entries = await s.ledger.listInRange!(start, end);
+    expect(entries.map(e => e.id)).toEqual(['start', 'correction']);
+    expect(() => Object.assign(entries[0]!, { amount: 1000 })).toThrow();
+    expect((await rankByPeriod(s.members, s.ledger, start, end)).map(e => [e.member.id, e.xp])).toEqual([[member.id, 7], ['second', 0]]);
+    expect((await s.ledger.listInRange!(-Infinity, Infinity))).toHaveLength(4);
+    expect((await rankByPeriod(s.members, s.ledger))[0]!.xp).toBe(2005);
+  });
   it('registers unique identities atomically and returns detached members/routes', async () => {
     const s = factory();
     expect(await s.members.register(member)).toBe(true);
@@ -108,4 +128,26 @@ it('bounds in-memory dedupe by LRU and age', async () => {
   await seen.claim('g', 'c', 3);
   expect(await seen.claim('g', 'b', 4)).toBe(true);
   expect(await seen.claim('g', 'b', 104)).toBe(true);
+});
+
+it('adds the period index to existing v1 databases and ignores edited balance caches', async () => {
+  const path = tempPath();
+  const initial = new SqliteStorage(path);
+  await initial.members.register(member);
+  await initial.ledger.append(entry);
+  initial.close();
+  const db = new DatabaseSync(path);
+  try {
+    // Simulate a v1 database created before interval queries were introduced.
+    db.exec('DROP INDEX xp_occurred_at; UPDATE xp_balance SET amount = 999999');
+    const reopened = new SqliteStorage(path);
+    cleanup.push(() => reopened.close());
+    expect((await rankByPeriod(reopened.members, reopened.ledger))[0]!.xp).toBe(10);
+    expect(await reopened.ledger.listInRange!(0, 1)).toEqual([entry]);
+    const inspection = new DatabaseSync(path);
+    try {
+      const plan = inspection.prepare("EXPLAIN QUERY PLAN SELECT payload FROM xp_transaction WHERE json_extract(payload, '$.occurredAt') >= ? AND json_extract(payload, '$.occurredAt') < ?").all(0, 1);
+      expect(plan).toEqual(expect.arrayContaining([expect.objectContaining({ detail: expect.stringContaining('xp_occurred_at') })]));
+    } finally { inspection.close(); }
+  } finally { db.close(); }
 });

@@ -2,6 +2,7 @@ import type { Member, GroupRoute, XpTransaction } from '../domain/models.js';
 import type { AuditEvent, AuditLog, Clock, GroupRouteRegistry, MemberRepository, WhatsAppAdapter, XpLedger } from '../application/ports.js';
 export class InMemoryMemberRepository implements MemberRepository {
   private readonly members = new Map<string, Member>();
+  async list(): Promise<readonly Member[]> { return structuredClone([...this.members.values()]); }
   async findByIdentity(identity: string): Promise<Member | undefined> {
     const member = [...this.members.values()].find(value => value.identities.some(id => id.platformUserId === identity));
     return member ? structuredClone(member) : undefined;
@@ -27,6 +28,9 @@ export class InMemoryXpLedger implements XpLedger {
     if (this.entries.some(entry => entry.id === transaction.id || (entry.source === transaction.source && entry.sourceId === transaction.sourceId))) return false;
     this.entries.push(Object.freeze({ ...transaction }));
     return true;
+  }
+  async listInRange(start: number, end: number): Promise<readonly XpTransaction[]> {
+    return Object.freeze(this.entries.filter(entry => entry.occurredAt >= start && entry.occurredAt < end).sort((a, b) => a.occurredAt - b.occurredAt).map(entry => Object.freeze({ ...entry })));
   }
   async list(memberId: string): Promise<readonly XpTransaction[]> {
     return Object.freeze(this.entries.filter(entry => entry.memberId === memberId).map(entry => Object.freeze({ ...entry })));
