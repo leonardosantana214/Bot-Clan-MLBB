@@ -1,18 +1,20 @@
+import { AeroInput as TextInput } from '../components/AeroInput';
 import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
+  ScrollView,
   Switch,
   Platform,
   StyleSheet,
   Text,
-  TextInput,
   View
 } from 'react-native';
-import { Badge, Button, Card } from '../components';
+import { AeroMark, AeroWordmark } from '../components/AeroBrand';
+import { Button, Card } from '../components';
 import { MockAuthProvider, type AuthProvider, type AuthSession } from '../services/auth';
 import { MockControllerApi, type ControllerApi } from '../services/api';
 import { createRemote } from '../services/remote';
-import { colors, radii, spacing, typography } from '../theme';
+import { borders, colors, radii, spacing, typography } from '../theme';
 
 export interface LoginScreenProps {
   onSessionExpired: () => void;
@@ -56,15 +58,12 @@ export function LoginScreen({
       behavior={ Platform.OS === 'ios' ? 'padding' : undefined }
       style={ styles.screen }
     >
-      <View style={ styles.container }>
+      <ScrollView contentContainerStyle={ styles.container } keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={ styles.brandHeader }>
-          <Badge label="MOBILE LEGENDS • CLAN OPS" tone="crimson" showDot />
-          <Text accessibilityRole="header" style={ styles.brandTitle }>
-            AeroBot Controller
-          </Text>
-          <Text style={ styles.brandSubtitle }>
-            Console tático de administração do bot de WhatsApp do clã A3RO B4STA.
-          </Text>
+          <AeroMark size={88} />
+          <AeroWordmark size={58} />
+          <Text style={styles.brandEyebrow}>CLÃ · MOBILE LEGENDS</Text>
+          <Text style={ styles.brandSubtitle }>Precisão em cada comando.</Text>
         </View>
 
         <Card
@@ -74,10 +73,10 @@ export function LoginScreen({
           accessibilityLabel="Formulário de login administrativo"
         >
           <Text style={styles.label}>Modo demonstração</Text>
-          <Switch value={demo} disabled={loading} onValueChange={value => { setDemo(value); setPassword(''); setError(null); }} accessibilityLabel="Modo demonstração" />
+          <Switch trackColor={{false: 'rgba(201, 162, 75, 0.35)', true: colors.primary}} thumbColor={colors.textPrimary} value={demo} disabled={loading} onValueChange={value => { setDemo(value); setPassword(''); setError(null); }} accessibilityLabel="Modo demonstração" />
           {!demo ? <View style={styles.fieldGroup}>
             <Text style={styles.label}>Endereço do Host</Text>
-            <TextInput value={address} onChangeText={setAddress} editable={!loading} autoCapitalize="none" autoCorrect={false} placeholder="http://192.168.0.10:8787" accessibilityLabel="Endereço do Host" style={styles.input} />
+            <TextInput value={address} onChangeText={setAddress} editable={!loading} autoCapitalize="none" autoCorrect={false} placeholder="http://192.168.0.10:8787" placeholderTextColor={colors.textMuted} accessibilityLabel="Endereço do Host" style={styles.input} />
           </View> : null}
           <View style={ styles.fieldGroup }>
             <Text style={ styles.label }>Senha de Administração</Text>
@@ -124,7 +123,7 @@ export function LoginScreen({
             {demo ? 'Demonstração local com dados sintéticos.' : 'Token somente em memória. HTTP apenas em rede confiável.'}
           </Text>
         </View>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -137,23 +136,31 @@ const styles = StyleSheet.create({
     padding: spacing.lg
   },
   container: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: spacing.xl,
     width: '100%',
     maxWidth: 420,
     alignSelf: 'center'
   },
   brandHeader: {
-    marginBottom: spacing.xl,
-    gap: spacing.xs
+    marginBottom: spacing.xxl,
+    paddingTop: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.sm
   },
+  brandEyebrow: { color: colors.gold, fontFamily: typography.families.medium, fontSize: typography.sizes.eyebrow, letterSpacing: 2 },
   brandTitle: {
     color: colors.textPrimary,
+    fontFamily: typography.families.display,
     fontSize: typography.sizes.xxl,
-    fontWeight: typography.weights.bold,
+    fontWeight: typography.weights.medium,
     lineHeight: typography.lineHeights.xxl,
     marginTop: spacing.xs
   },
   brandSubtitle: {
     color: colors.textSecondary,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.sm,
     lineHeight: typography.lineHeights.sm
   },
@@ -161,24 +168,29 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md
   },
   label: {
+    textTransform: 'uppercase',
+    letterSpacing: typography.tracking.label,
     color: colors.textPrimary,
+    fontFamily: typography.families.bold,
     fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.semibold,
+    fontWeight: typography.weights.regular,
     marginBottom: spacing.xs
   },
   input: {
     backgroundColor: colors.background,
-    borderWidth: 1,
+    borderWidth: borders.hairline,
     borderColor: colors.border,
     borderRadius: radii.sm,
     color: colors.textPrimary,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.md,
     minHeight: 46
   },
   helperText: {
     color: colors.textMuted,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.xs,
     lineHeight: typography.lineHeights.xs,
     marginTop: spacing.xs
@@ -190,13 +202,14 @@ const styles = StyleSheet.create({
   errorBox: {
     backgroundColor: colors.dangerSoft,
     borderColor: colors.primaryBorder,
-    borderWidth: 1,
+    borderWidth: borders.hairline,
     borderRadius: radii.sm,
     padding: spacing.sm,
     marginBottom: spacing.md
   },
   errorText: {
     color: colors.dangerText,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.xs,
     lineHeight: typography.lineHeights.xs,
     fontWeight: typography.weights.medium
@@ -207,6 +220,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     color: colors.textMuted,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.xs,
     textAlign: 'center'
   }

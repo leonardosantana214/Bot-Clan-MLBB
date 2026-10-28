@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Badge, Card, EmptyState, ErrorState, Loading } from '../components';
 import type { ControllerApi, GroupRoute, ModuleKey } from '../services/api';
-import { colors, radii, spacing, typography } from '../theme';
+import { borders, colors, radii, spacing, typography } from '../theme';
 
 export interface GroupsScreenProps {
   api: ControllerApi;
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: colors.surfaceElevated,
     borderRadius: radii.sm,
-    borderWidth: 1,
+    borderWidth: borders.hairline,
     borderColor: colors.border,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
@@ -180,11 +180,13 @@ const styles = StyleSheet.create({
   },
   moduleLabel: {
     color: colors.textPrimary,
+    fontFamily: typography.families.bold,
     fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.semibold
+    fontWeight: typography.weights.regular
   },
   moduleDesc: {
     color: colors.textSecondary,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.xs,
     marginTop: 2
   }

@@ -1,4 +1,4 @@
-# AeroBot Controller
+# AERO
 
 Expo/React Native/web. Login começa no modo real. A opção **Modo demonstração** usa mocks locais (senha `aeroclan-admin`), separados da conexão real. Não ative essa opção para conectar ao Host HTTP de demonstração.
 
@@ -78,7 +78,7 @@ Use sempre um **NÚMERO DE TESTE**. Escanear o QR autoriza o bot a controlar ess
 ### Demonstração sem WhatsApp
 
 1. Na raiz, execute `corepack pnpm build` e `corepack pnpm --filter @aerobot/controller web --port 8081`.
-2. Abra `http://localhost:8081`, ative **Modo demonstração** no login e entre conforme a instrução da tela. Abra **Conexão** e clique em **Gerar novo QR**. Aparece apenas um marcador textual fictício, impossível de escanear. Após 15 segundos, a consulta automática mostra **conectado**.
+2. Abra `http://localhost:8081`, ative **Modo demonstração** no login e entre conforme a instrução da tela. Abra **Conexão** e clique em **Gerar novo QR**. Aparece apenas uma moldura com marcador fictício, impossível de escanear. Após 15 segundos, a consulta automática mostra **conectado**.
 3. Abra **Grupos** e atribua um grupo a CHAT e outro a ADM. Tente atribuir o mesmo grupo aos dois papéis: deve ser recusado. Os dados são rotulados como demonstração e não controlam WhatsApp.
 4. Em **Conexão**, clique **Desconectar**, cancele, depois repita e confirme. Gere outro QR para repetir o fluxo. Sair da aba cancela o polling; voltar consulta novamente. Sem conectar, o polling encerra após três minutos; **Gerar novo QR** o retoma.
 5. Para testar também HTTP, em outro terminal use `$env:AEROBOT_CONTROL_ORIGINS='http://localhost:8081'` e `corepack pnpm --filter @aerobot/whatsapp-baileys control-demo`. A senha temporária aparece somente nesse terminal TTY. No Controller, desative o modo demonstração, informe `http://127.0.0.1:8787` e essa senha. O Host de demonstração também rotaciona o marcador fictício a cada cinco segundos e conecta após 15 segundos, sem Baileys/rede WhatsApp. Nomes de conta e grupos indicam DEMONSTRAÇÃO. Papéis são salvos somente na pasta temporária, apagada ao encerrar normalmente o demo.
@@ -101,3 +101,7 @@ Para acesso remoto, configure TLS/túnel confiável e **somente então** defina 
 ### Verificações automatizadas
 
 Na raiz: `corepack pnpm typecheck`, `corepack pnpm lint`, `corepack pnpm test`, `corepack pnpm build` e `corepack pnpm --filter @aerobot/controller build:web`. Os testes de pareamento usam sockets falsos; os testes HTTP usam apenas `127.0.0.1`. Incluem autenticação, confirmação obrigatória, auditoria sem QR, contexto de transporte, idempotência, expiração/rotação, logout e persistência/validação de papéis. O teste real do WhatsApp é manual e exige a conta de teste.
+
+## Identidade visual
+
+O sistema AERO, tokens, fontes locais e componentes estão documentados em [DESIGN.md](DESIGN.md).

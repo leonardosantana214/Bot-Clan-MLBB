@@ -1,10 +1,10 @@
+import { AeroInput as TextInput } from '../components/AeroInput';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
   Switch,
   Text,
-  TextInput,
   View
 } from 'react-native';
 import { Badge, Button, Card, ErrorState, Loading } from '../components';
@@ -16,7 +16,7 @@ import type {
   ExportReceipt
 } from '../services/api';
 import type { AuthSession } from '../services/auth';
-import { colors, radii, spacing, typography } from '../theme';
+import { borders, colors, radii, spacing, typography } from '../theme';
 
 export interface SettingsScreenProps {
   api: ControllerApi;
@@ -191,7 +191,7 @@ export function SettingsScreen({
       </Card>
 
       <Card
-        title="Parâmetros do AeroBot"
+        title="Parâmetros AERO"
         subtitle="Ajustes globais de comandos, ganho de XP e segurança"
       >
         { savedBanner ? (
@@ -323,26 +323,30 @@ const styles = StyleSheet.create({
     gap: spacing.xs
   },
   exportRow: {
+    flexWrap: 'wrap',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.surfaceElevated,
     borderRadius: radii.sm,
-    borderWidth: 1,
+    borderWidth: borders.hairline,
     borderColor: colors.border,
     padding: spacing.sm,
     gap: spacing.sm
   },
   exportInfo: {
+    minWidth: 130,
     flex: 1
   },
   exportTitle: {
     color: colors.textPrimary,
+    fontFamily: typography.families.bold,
     fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.semibold
+    fontWeight: typography.weights.regular
   },
   exportSubtitle: {
     color: colors.textSecondary,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.xs,
     marginTop: 2
   },
@@ -350,7 +354,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     backgroundColor: colors.background,
     borderRadius: radii.sm,
-    borderWidth: 1,
+    borderWidth: borders.hairline,
     borderColor: colors.primaryBorder,
     padding: spacing.md
   },
@@ -362,11 +366,13 @@ const styles = StyleSheet.create({
   },
   receiptTitle: {
     color: colors.textPrimary,
+    fontFamily: typography.families.bold,
     fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.bold
+    fontWeight: typography.weights.regular
   },
   receiptMeta: {
     color: colors.textSecondary,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.xs,
     marginBottom: spacing.xs
   },
@@ -374,38 +380,42 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceElevated,
     borderRadius: radii.xs,
     padding: spacing.sm,
-    borderWidth: 1,
+    borderWidth: borders.hairline,
     borderColor: colors.border
   },
   csvCode: {
     color: colors.primaryText,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.xs,
     lineHeight: typography.lineHeights.xs
   },
   savedBanner: {
     backgroundColor: colors.successSoft,
-    borderColor: 'rgba(46, 204, 113, 0.35)',
-    borderWidth: 1,
+    borderColor: colors.success,
+    borderWidth: borders.hairline,
     borderRadius: radii.sm,
     padding: spacing.sm,
     marginBottom: spacing.md
   },
   savedBannerText: {
     color: colors.successText,
+    fontFamily: typography.families.bold,
     fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.semibold
+    fontWeight: typography.weights.regular
   },
   settingBlock: {
     marginBottom: spacing.md
   },
   settingLabel: {
     color: colors.textPrimary,
+    fontFamily: typography.families.bold,
     fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.semibold,
+    fontWeight: typography.weights.regular,
     marginBottom: spacing.xs
   },
   settingSub: {
     color: colors.textSecondary,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.xs
   },
   prefixRow: {
@@ -417,11 +427,12 @@ const styles = StyleSheet.create({
   },
   textArea: {
     backgroundColor: colors.background,
-    borderWidth: 1,
+    borderWidth: borders.hairline,
     borderColor: colors.border,
     borderRadius: radii.sm,
     color: colors.textPrimary,
     padding: spacing.sm,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.sm,
     minHeight: 68,
     textAlignVertical: 'top'
@@ -431,7 +442,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: spacing.sm,
-    borderTopWidth: 1,
+    borderTopWidth: borders.hairline,
     borderTopColor: colors.border,
     gap: spacing.sm
   },

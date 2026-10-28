@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Badge, Card, EmptyState, ErrorState, Loading } from '../components';
 import type { ControllerApi, XpRankEntry } from '../services/api';
-import { colors, radii, spacing, typography } from '../theme';
+import { borders, colors, radii, spacing, typography } from '../theme';
 
 export interface RankingScreenProps {
   api: ControllerApi;
@@ -68,8 +68,8 @@ export function RankingScreen({ api, refreshSignal }: RankingScreenProps): React
     >
       <Card
         accent
-        title="Leaderboard de XP • Temporada S34"
-        subtitle="Classificação sintética baseada em participação e comandos de clã"
+        title="Ranking"
+        subtitle="Temporada S34 · Participação e experiência"
         rightElement={ <Badge label={ `${entries.length} ranqueados` } tone="crimson" /> }
       >
         <View style={ styles.list }>
@@ -89,8 +89,8 @@ export function RankingScreen({ api, refreshSignal }: RankingScreenProps): React
                 style={ [styles.rankRow, isTopThree && styles.rankRowHighlight] }
               >
                 <View style={ [styles.rankBadge, isTopThree && styles.rankBadgeTop] }>
-                  <Text style={ [styles.rankText, isTopThree && styles.rankTextTop] }>
-                    #{ entry.rank }
+                  <Text style={ [styles.rankText, isTopThree && styles.rankTextTop, { color: entry.rank === 1 ? colors.gold : entry.rank === 2 ? colors.silver : entry.rank === 3 ? colors.bronze : colors.textMuted }] }>
+                    { ['I', 'II', 'III'][entry.rank - 1] ?? entry.rank }
                   </Text>
                 </View>
 
@@ -141,9 +141,9 @@ const styles = StyleSheet.create({
   rankRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: colors.surface,
     borderRadius: radii.sm,
-    borderWidth: 1,
+    borderBottomWidth: borders.hairline,
     borderColor: colors.border,
     padding: spacing.md,
     gap: spacing.md
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: radii.sm,
     backgroundColor: colors.surface,
-    borderWidth: 1,
+    borderWidth: borders.hairline,
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center'
@@ -167,8 +167,9 @@ const styles = StyleSheet.create({
   },
   rankText: {
     color: colors.textSecondary,
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.bold
+    fontFamily: typography.families.display,
+    fontSize: typography.sizes.rank,
+    fontWeight: typography.weights.medium
   },
   rankTextTop: {
     color: colors.primaryText
@@ -178,21 +179,25 @@ const styles = StyleSheet.create({
     gap: 4
   },
   topLine: {
+    flexWrap: 'wrap',
+    gap: spacing.xxs,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between'
   },
   nickname: {
     color: colors.textPrimary,
+    fontFamily: typography.families.bold,
     fontSize: typography.sizes.md,
-    fontWeight: typography.weights.bold
+    fontWeight: typography.weights.regular
   },
   roleLine: {
     color: colors.textSecondary,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.xs
   },
   xpBarTrack: {
-    height: 6,
+    height: 2,
     backgroundColor: colors.background,
     borderRadius: radii.pill,
     overflow: 'hidden',
@@ -200,7 +205,7 @@ const styles = StyleSheet.create({
   },
   xpBarFill: {
     height: '100%',
-    backgroundColor: colors.primary,
+    backgroundColor: colors.gold,
     borderRadius: radii.pill
   },
   metaLine: {
@@ -211,11 +216,13 @@ const styles = StyleSheet.create({
   },
   xpText: {
     color: colors.primaryText,
+    fontFamily: typography.families.bold,
     fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.semibold
+    fontWeight: typography.weights.regular
   },
   metaText: {
     color: colors.textMuted,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.xs
   }
 });

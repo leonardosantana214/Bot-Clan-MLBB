@@ -1,39 +1,45 @@
 export const colors = {
-  background: '#090A0F',
-  surface: '#12151E',
-  surfaceElevated: '#1A1E2B',
-  surfaceHighlight: '#222838',
-  border: '#282E42',
-  borderFocus: '#DC143C',
+  gold: '#C9A24B',
+  silver: '#B7B4AA',
+  bronze: '#B58F72',
+  transparent: 'transparent',
+  qrPaper: '#FFFFFF',
+  qrInk: '#08080A',
+  background: '#08080A',
+  surface: '#101013',
+  surfaceElevated: '#16161A',
+  surfaceHighlight: '#1D191B',
+  border: 'rgba(201, 162, 75, 0.30)',
+  borderFocus: '#B3122B',
 
-  primary: '#DC143C',
-  primaryHover: '#E81E48',
-  primarySoft: 'rgba(220, 20, 60, 0.16)',
-  primaryBorder: 'rgba(220, 20, 60, 0.45)',
-  primaryText: '#FF5C7C',
+  primary: '#B3122B',
+  primaryHover: '#D2132F',
+  primarySoft: 'rgba(179, 18, 43, 0.12)',
+  primaryBorder: 'rgba(201, 162, 75, 0.35)',
+  primaryText: '#E3C77A',
 
-  textPrimary: '#F5F7FA',
-  textSecondary: '#B4BCD0',
-  textMuted: '#8E98B0',
-  textOnPrimary: '#FFFFFF',
+  textPrimary: '#EDE6D6',
+  textSecondary: '#BDB6AA',
+  textMuted: '#A39B8E',
+  textOnPrimary: '#EDE6D6',
 
-  success: '#2ECC71',
-  successSoft: 'rgba(46, 204, 113, 0.15)',
-  successText: '#4CE68D',
+  success: '#718768',
+  successSoft: 'rgba(113, 135, 104, 0.12)',
+  successText: '#A9BE9B',
 
-  warning: '#F39C12',
-  warningSoft: 'rgba(243, 156, 18, 0.16)',
-  warningText: '#FFB74D',
+  warning: '#C9A24B',
+  warningSoft: 'rgba(201, 162, 75, 0.12)',
+  warningText: '#E3C77A',
 
-  danger: '#DC143C',
-  dangerSoft: 'rgba(220, 20, 60, 0.16)',
-  dangerText: '#FF6B88',
+  danger: '#B3122B',
+  dangerSoft: 'rgba(179, 18, 43, 0.12)',
+  dangerText: '#E99BA6',
 
-  info: '#3498DB',
-  infoSoft: 'rgba(52, 152, 219, 0.16)',
-  infoText: '#67B8F0',
+  info: '#C9A24B',
+  infoSoft: 'rgba(201, 162, 75, 0.10)',
+  infoText: '#E3C77A',
 
-  overlay: 'rgba(5, 6, 10, 0.82)'
+  overlay: 'rgba(8, 8, 10, 0.92)'
 } as const;
 
 export const spacing = {
@@ -47,15 +53,27 @@ export const spacing = {
 } as const;
 
 export const radii = {
-  xs: 6,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  pill: 999
+  xs: 2,
+  sm: 4,
+  md: 4,
+  lg: 6,
+  pill: 3
 } as const;
 
+export const borders = { hairline: 1, focus: 2 } as const;
+
 export const typography = {
+  families: { ui: 'Manrope_400Regular', medium: 'Manrope_500Medium', bold: 'Manrope_600SemiBold', display: 'CormorantGaramond_500Medium' },
+  tracking: { label: 2, wordmark: 8 },
   sizes: {
+    nav: 9,
+    eyebrow: 10,
+    bodyCompact: 13,
+    section: 24,
+    rank: 30,
+    heading: 36,
+    hero: 38,
+    metric: 40,
     xs: 12,
     sm: 14,
     md: 16,
@@ -83,6 +101,7 @@ export const theme = {
   colors,
   spacing,
   radii,
+  borders,
   typography
 } as const;
 

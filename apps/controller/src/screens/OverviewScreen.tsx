@@ -12,7 +12,7 @@ import {
 } from '../components';
 import { RemoteControllerApi } from '../services/remote';
 import type { ControllerApi, HostState, OverviewStats } from '../services/api';
-import { colors, radii, spacing, typography } from '../theme';
+import { borders, colors, radii, spacing, typography } from '../theme';
 
 export interface OverviewScreenProps {
   api: ControllerApi;
@@ -323,18 +323,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: colors.surface,
     borderRadius: radii.md,
-    borderWidth: 1,
+    borderWidth: borders.hairline,
     borderColor: colors.border,
     padding: spacing.md,
     marginBottom: spacing.md
   },
   clanName: {
+    letterSpacing: 6,
     color: colors.textPrimary,
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.bold
+    fontFamily: typography.families.display,
+    fontSize: typography.sizes.hero,
+    fontWeight: typography.weights.medium
   },
   seasonLabel: {
     color: colors.textSecondary,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.xs,
     marginTop: 2
   },
@@ -349,20 +352,25 @@ const styles = StyleSheet.create({
     flexBasis: '46%',
     backgroundColor: colors.surface,
     borderRadius: radii.md,
-    borderWidth: 1,
+    borderWidth: borders.hairline,
     borderColor: colors.border,
     padding: spacing.md
   },
   metricLabel: {
+    textTransform: 'uppercase',
+    letterSpacing: typography.tracking.label,
     color: colors.textSecondary,
+    fontFamily: typography.families.medium,
     fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.medium
+    fontWeight: typography.weights.regular
   },
   metricValue: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold,
-    marginVertical: spacing.xxs
+    color: colors.gold,
+    fontFamily: typography.families.display,
+    fontSize: typography.sizes.metric,
+    fontWeight: typography.weights.medium,
+    marginVertical: spacing.xxs,
+    fontVariant: ['tabular-nums']
   },
   metricCrimson: {
     color: colors.primaryText
@@ -375,6 +383,7 @@ const styles = StyleSheet.create({
   },
   metricMeta: {
     color: colors.textMuted,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.xs
   },
   controlsRow: {

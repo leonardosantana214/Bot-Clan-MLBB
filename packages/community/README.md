@@ -1,6 +1,6 @@
 # @aerobot/community
 
-Gestão de comunidade para o bot A3RO B4STA: entradas/saídas, notificações aos ADMs, boas-vindas e moderação assistida. O core não importa este pacote; o host faz a ligação.
+Gestão de comunidade para o bot AERO: entradas/saídas, notificações aos ADMs, boas-vindas e moderação assistida. O core não importa este pacote; o host faz a ligação.
 
 ```ts
 const community = createCommunity({ config, store, adapter, members, clock });
