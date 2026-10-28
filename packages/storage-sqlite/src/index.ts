@@ -20,6 +20,7 @@ export class SqliteStorage {
       });
     } catch (error) { this.db.close(); throw error; }
     this.members = {
+      list: async () => this.db.prepare('SELECT payload FROM member ORDER BY rowid').all().map(row => JSON.parse(String(row.payload)) as Member),
       findByIdentity: async identity => {
         const row = this.db.prepare('SELECT m.payload FROM member m JOIN whatsapp_identity w ON w.member_id = m.id WHERE w.platform_user_id = ?').get(identity);
         return row ? JSON.parse(String(row.payload)) as Member : undefined;
@@ -38,6 +39,7 @@ export class SqliteStorage {
       return row ? JSON.parse(String(row.payload)) as GroupRoute : undefined;
     } };
     this.ledger = {
+      listInRange: async (start, end) => Object.freeze(this.db.prepare("SELECT payload FROM xp_transaction WHERE json_extract(payload, '$.occurredAt') >= ? AND json_extract(payload, '$.occurredAt') < ? ORDER BY json_extract(payload, '$.occurredAt'), rowid").all(start, end).map(row => Object.freeze(JSON.parse(String(row.payload)) as XpTransaction))),
       append: async entry => {
         if (!Number.isSafeInteger(entry.amount) || entry.amount === 0 || !Number.isSafeInteger(entry.occurredAt) || !entry.reason.trim() || !entry.actorId.trim()) throw new Error('Invalid transaction');
         return this.transaction(() => {
@@ -69,12 +71,16 @@ export class SqliteStorage {
       this.db.exec('CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY)');
       const version = Number(this.db.prepare('SELECT COALESCE(MAX(version), 0) AS version FROM schema_version').get()!.version);
       if (version > 1) throw new Error('Unsupported schema version');
-      if (version === 1) return;
+      if (version === 1) {
+        this.db.exec("CREATE INDEX IF NOT EXISTS xp_occurred_at ON xp_transaction(json_extract(payload, '$.occurredAt'))");
+        return;
+      }
       this.db.exec(`
         CREATE TABLE member (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
         CREATE TABLE whatsapp_identity (platform_user_id TEXT PRIMARY KEY, member_id TEXT NOT NULL REFERENCES member(id));
         CREATE TABLE group_route (group_id TEXT PRIMARY KEY, payload TEXT NOT NULL);
         CREATE TABLE xp_transaction (id TEXT PRIMARY KEY, member_id TEXT NOT NULL, source TEXT NOT NULL, source_id TEXT NOT NULL, payload TEXT NOT NULL, UNIQUE(source, source_id));
+        CREATE INDEX xp_occurred_at ON xp_transaction(json_extract(payload, '$.occurredAt'));
         CREATE INDEX xp_member ON xp_transaction(member_id);
         CREATE TABLE xp_balance (member_id TEXT PRIMARY KEY, amount INTEGER NOT NULL);
         CREATE TABLE seen_message (group_id TEXT NOT NULL, message_id TEXT NOT NULL, seen_at INTEGER NOT NULL, PRIMARY KEY(group_id, message_id));

@@ -2,11 +2,13 @@ import { z } from 'zod';
 import type { LevelFormula } from '../domain/models.js';
 import type { AuditLog, Clock, GroupRouteRegistry, IncomingMessage, MemberRepository, WhatsAppAdapter, XpLedger } from './ports.js';
 export interface CommandContext {
+  commands?: readonly CommandDefinition[];
   message: IncomingMessage; members: MemberRepository; ledger: XpLedger;
   clock: Clock; audit: AuditLog; levelFormula: LevelFormula;
 }
 export interface CommandDefinition {
   readonly name: string;
+  readonly description?: string;
   readonly input: z.ZodType<readonly string[]>;
   handle(context: CommandContext, input: readonly string[]): Promise<string>;
 }
@@ -21,6 +23,7 @@ export class CommandRegistry {
     if (this.commands.has(command.name)) throw new Error('Duplicate command');
     this.commands.set(command.name, command);
   }
+  list(): readonly CommandDefinition[] { return [...this.commands.values()]; }
   async dispatch(context: CommandContext): Promise<void> {
     const { message, clock } = context;
     const [token, ...args] = message.text.trim().split(/\s+/u);
@@ -34,7 +37,7 @@ export class CommandRegistry {
     if (previous !== undefined && now - previous < this.intervalMs) return;
     this.lastCommand.set(message.senderId, now);
     const parsed = command.input.safeParse(args);
-    const response = parsed.success ? await command.handle(context, parsed.data) : 'Argumentos inválidos. Use /ajuda.';
+    const response = parsed.success ? await command.handle({ ...context, commands: this.list().filter(c => route.allowedCommands.includes(c.name)) }, parsed.data) : 'Argumentos inválidos. Use /ajuda.';
     await this.adapter.sendMessage(message.groupId, response);
   }
 }
