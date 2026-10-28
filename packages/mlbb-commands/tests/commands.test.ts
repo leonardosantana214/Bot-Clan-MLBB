@@ -19,7 +19,8 @@ import { META_USAGE_MESSAGE, createMlbbCommands, parseHeroQuery } from '../src/i
 // Real responses captured from the Rone Arena service on 2026-10-28 (shared with the provider tests).
 const fixtureUrl = (name: string) =>
   fileURLToPath(new URL(`../../mlbb-provider/tests/fixtures/${name}`, import.meta.url));
-const loadFixture = async (name: string): Promise<any> => JSON.parse(await readFile(fixtureUrl(name), 'utf8'));
+interface Fixture { data: { records: unknown[] } }
+const loadFixture = async (name: string): Promise<Fixture> => JSON.parse(await readFile(fixtureUrl(name), 'utf8')) as Fixture;
 
 const folders: string[] = [];
 afterEach(async () => {
