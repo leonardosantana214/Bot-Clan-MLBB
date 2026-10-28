@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Switch,
   Platform,
   StyleSheet,
   Text,
@@ -8,35 +9,43 @@ import {
   View
 } from 'react-native';
 import { Badge, Button, Card } from '../components';
-import type { AuthProvider, AuthSession } from '../services/auth';
+import { MockAuthProvider, type AuthProvider, type AuthSession } from '../services/auth';
+import { MockControllerApi, type ControllerApi } from '../services/api';
+import { createRemote } from '../services/remote';
 import { colors, radii, spacing, typography } from '../theme';
 
 export interface LoginScreenProps {
-  authProvider: AuthProvider;
-  onAuthenticated: (session: AuthSession) => void;
+  onSessionExpired: () => void;
+  onAuthenticated: (session: AuthSession, api: ControllerApi, auth: AuthProvider, demo: boolean) => void;
 }
 
 export function LoginScreen({
-  authProvider,
+  onSessionExpired,
   onAuthenticated
 }: LoginScreenProps): React.JSX.Element {
+  const [demo, setDemo] = useState(false);
+  const [address, setAddress] = useState(() => { try { return globalThis.localStorage?.getItem('aerobot-host') ?? 'http://127.0.0.1:8787'; } catch { return 'http://127.0.0.1:8787'; } });
   const [password, setPassword] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
   const handleLogin = async (): Promise<void> => {
+    if (loading) return;
     setError(null);
     setLoading(true);
     try {
-      const result = await authProvider.login(password);
+      const connection = demo ? { api: new MockControllerApi(), auth: new MockAuthProvider() } : createRemote(address.trim(), onSessionExpired);
+      const result = await connection.auth.login(password);
+      setPassword('');
       if (result.ok && result.session) {
-        onAuthenticated(result.session);
+        if (!demo) { try { globalThis.localStorage?.setItem('aerobot-host', address.trim()); } catch { /* Address persistence is optional. */ } }
+        onAuthenticated(result.session, connection.api, connection.auth, demo);
       } else {
         setError(result.errorMessage ?? 'Não foi possível validar a credencial.');
       }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro inesperado na validação local.';
-      setError(message);
+    } catch {
+      setPassword('');
+      setError('Endereço do Host inválido ou conexão indisponível.');
     } finally {
       setLoading(false);
     }
@@ -61,9 +70,15 @@ export function LoginScreen({
         <Card
           accent
           title="Acesso Administrativo"
-          subtitle="Validação local sintética (sem conexão externa)"
+          subtitle={demo ? "Modo demonstração • dados sintéticos" : "Conexão real com o Host"}
           accessibilityLabel="Formulário de login administrativo"
         >
+          <Text style={styles.label}>Modo demonstração</Text>
+          <Switch value={demo} disabled={loading} onValueChange={value => { setDemo(value); setPassword(''); setError(null); }} accessibilityLabel="Modo demonstração" />
+          {!demo ? <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Endereço do Host</Text>
+            <TextInput value={address} onChangeText={setAddress} editable={!loading} autoCapitalize="none" autoCorrect={false} placeholder="http://192.168.0.10:8787" accessibilityLabel="Endereço do Host" style={styles.input} />
+          </View> : null}
           <View style={ styles.fieldGroup }>
             <Text style={ styles.label }>Senha de Administração</Text>
             <TextInput
@@ -82,7 +97,7 @@ export function LoginScreen({
               } }
             />
             <Text style={ styles.helperText }>
-              Modo Demo: credencial padrão preenchida (<Text style={ styles.code }>aeroclan-admin</Text>).
+              {demo ? 'Modo demonstração: senha aeroclan-admin.' : 'Informe a senha definida no Host.'}
             </Text>
           </View>
 
@@ -106,7 +121,7 @@ export function LoginScreen({
 
         <View style={ styles.footerNote }>
           <Text style={ styles.footerText }>
-            Ambiente 100% sintético • Nenhum dado real ou número de telefone armazenado.
+            {demo ? 'Demonstração local com dados sintéticos.' : 'Token somente em memória. HTTP apenas em rede confiável.'}
           </Text>
         </View>
       </View>

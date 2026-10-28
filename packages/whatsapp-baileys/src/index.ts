@@ -50,6 +50,11 @@ export class BaileysAdapter implements ObservableWhatsAppAdapter {
       if (value !== undefined && (!Number.isSafeInteger(value) || value < 1)) throw new Error('Limits must be positive integers');
     }
   }
+  private connectedAt = 'Nunca conectado';
+  get lastConnectedAt(): string { return this.connectedAt; }
+  get responsesPaused(): boolean { return this.paused; }
+  get pendingQueueCount(): number { return this.queue.length; }
+  get processedPerMinute(): number { return this.sent.filter(t => t > Date.now() - 60_000).length; }
   get connectionState(): ConnectionState { return this.state; }
   onMessage(h: Handler<InboundMessage>): () => void { this.messages.add(h); return () => { this.messages.delete(h); }; }
   onMembershipChange(h: Handler<MembershipChange>): () => void { this.memberships.add(h); return () => { this.memberships.delete(h); }; }
@@ -58,7 +63,7 @@ export class BaileysAdapter implements ObservableWhatsAppAdapter {
     for (const handler of handlers) { try { handler(value); } catch { this.log('Observer failed'); } }
   }
   private log(text: string): void { try { this.options.log?.(maskLog(text)); } catch { /* Logging cannot interrupt lifecycle cleanup. */ } }
-  private setState(state: ConnectionState): void { this.state = state; this.log(`WhatsApp ${state}`); this.emit(this.states, state); }
+  private setState(state: ConnectionState): void { if (state === 'open') this.connectedAt = new Date().toISOString(); this.state = state; this.log(`WhatsApp ${state}`); this.emit(this.states, state); }
   connect(): Promise<void> {
     if (this.opening) return this.opening;
     if (!this.stopped) return Promise.resolve();

@@ -41,6 +41,8 @@ export interface ControlServerOptions {
 
 type Result = { outcome: CommandOutcome; command?: { id: string; state: CommandState }; replayed?: boolean };
 
+export class UnsupportedControlOperation extends Error { constructor() { super('Operação não suportada.'); } }
+
 const MESSAGES: Record<ControlErrorCode, string> = {
   invalid_request: 'Requisicao invalida.',
   unsupported_version: 'Versao do protocolo nao suportada.',
@@ -51,6 +53,7 @@ const MESSAGES: Record<ControlErrorCode, string> = {
   conflict: 'Chave de idempotencia reutilizada com outro conteudo.',
   not_found: 'Recurso nao encontrado.',
   renewal_limit: 'Limite de renovacao atingido; faca login novamente.',
+  unsupported: 'Operação não suportada neste Host.',
   internal: 'Falha ao executar a operacao no Host.'
 };
 const fail = (code: ControlErrorCode, retryAfterMs?: number): CommandOutcome =>
@@ -130,7 +133,7 @@ export class ControlServer implements ControlMessageHandler {
   }
 
   private async read(fn: () => Promise<unknown>): Promise<Result> {
-    try { return { outcome: { ok: true, data: await fn() } }; } catch { this.o.logger?.warn('control.host_error'); return { outcome: fail('internal') }; }
+    try { return { outcome: { ok: true, data: await fn() } }; } catch (error) { this.o.logger?.warn('control.host_error'); return { outcome: fail(error instanceof UnsupportedControlOperation ? 'unsupported' : 'internal') }; }
   }
 
   private async login(origin: string, password: string): Promise<Result> {
@@ -195,11 +198,11 @@ export class ControlServer implements ControlMessageHandler {
       if (data === undefined) { this.commands.transition(rec.id, 'falhou', 'host'); return done(fail('not_found')); }
       this.commands.transition(rec.id, 'concluido', 'host');
       return done({ ok: true, data });
-    } catch {
+    } catch (error) {
       this.o.logger?.warn('control.command_failed', { type: req.type });
       if (rec.state === 'em_execucao') this.commands.transition(rec.id, 'falhou', 'host');
       await this.audit(`${actionOf(req)}.failed`, actor, subjectOf(req)).catch(() => undefined);
-      return done(fail('internal'));
+      return done(fail(error instanceof UnsupportedControlOperation ? 'unsupported' : 'internal'));
     }
   }
 

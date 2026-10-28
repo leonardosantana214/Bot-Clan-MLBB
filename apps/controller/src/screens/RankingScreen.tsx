@@ -118,7 +118,7 @@ export function RankingScreen({ api, refreshSignal }: RankingScreenProps): React
                       { entry.xp } / { entry.nextLevelXp } XP ({ progressPercent }%)
                     </Text>
                     <Text style={ styles.metaText }>
-                      { entry.messagesSent } msgs • Ofensiva { entry.streakDays }d
+                      { entry.messagesSent } msgs • Ofensiva { entry.streakDays === null ? 'indisponível' : `${entry.streakDays}d` }
                     </Text>
                   </View>
                 </View>

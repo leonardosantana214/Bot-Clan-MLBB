@@ -1,6 +1,7 @@
 // Manual host only. Never imported by the fake-socket tests.
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { startControlServer } from './control-host.js';
 import { composeHost } from './compose.js';
 import { ArenaProvider } from '@aerobot/mlbb-provider';
 import { createMlbbCommands } from '@aerobot/mlbb-commands';
@@ -28,11 +29,12 @@ const host = composeHost({
   getPassphrase: () => process.env.AEROBOT_BACKUP_PASSPHRASE
 });
 adapter.setPaused(process.env.AEROBOT_PAUSED === '1');
+let control: Awaited<ReturnType<typeof startControlServer>>;
 let stopping = false;
 async function shutdown() {
   if (stopping) return; stopping = true;
-  try { await host.close(); } finally { await adapter.disconnect(); }
+  try { await control?.server.close(); } finally { try { await host.close(); } finally { await adapter.disconnect(); } }
 }
 process.once('SIGINT', () => { void shutdown(); });
 process.once('SIGTERM', () => { void shutdown(); });
-try { await adapter.connect(); } catch (error) { await shutdown(); throw error; }
+try { control = await startControlServer(host.storage, adapter); if (control) process.stdout.write(`Controller: ${control.url}\n`); await adapter.connect(); } catch (error) { await shutdown(); throw error; }

@@ -14,11 +14,11 @@ import { OverviewScreen } from './src/screens/OverviewScreen';
 import { RankingScreen } from './src/screens/RankingScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import {
-  defaultControllerApi,
+  type ControllerApi,
   type HostState,
   type SimulationMode
 } from './src/services/api';
-import { defaultAuthProvider, type AuthSession } from './src/services/auth';
+import { type AuthProvider, type AuthSession } from './src/services/auth';
 import { colors, radii, spacing, typography } from './src/theme';
 
 type TabKey = 'overview' | 'groups' | 'ranking' | 'settings';
@@ -64,22 +64,26 @@ const SIMULATION_MODES: ReadonlyArray<{ mode: SimulationMode; label: string }> =
 ];
 
 export default function App(): React.JSX.Element {
+  const [api, setApi] = useState<ControllerApi | null>(null);
+  const [auth, setAuth] = useState<AuthProvider | null>(null);
+  const [demo, setDemo] = useState(false);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [simMode, setSimMode] = useState<SimulationMode>(
-    defaultControllerApi.getSimulationMode()
+    'normal'
   );
   const [refreshSignal, setRefreshSignal] = useState<number>(0);
   const [hostSummary, setHostSummary] = useState<HostState | null>(null);
 
   const handleSelectSimMode = (mode: SimulationMode): void => {
-    defaultControllerApi.setSimulationMode(mode);
+    api?.setSimulationMode(mode);
     setSimMode(mode);
     setRefreshSignal((prev) => prev + 1);
   };
 
   const handleLogout = async (): Promise<void> => {
-    await defaultAuthProvider.logout();
+    await auth?.logout();
+    setApi(null); setAuth(null); setHostSummary(null); setActiveTab('overview');
     setSession(null);
   };
 
@@ -87,14 +91,14 @@ export default function App(): React.JSX.Element {
     setHostSummary(updated);
   }, []);
 
-  if (!session) {
+  if (!session || !api) {
     return (
       <SafeAreaView style={ styles.safeArea }>
         <StatusBar barStyle="light-content" backgroundColor={ colors.background } />
         <LoginScreen
-          authProvider={ defaultAuthProvider }
-          onAuthenticated={ (newSession) => {
-            setSession(newSession);
+          onSessionExpired={() => { setSession(null); setApi(null); setAuth(null); setHostSummary(null); setActiveTab('overview'); }}
+          onAuthenticated={ (newSession, newApi, newAuth, isDemo) => {
+            setApi(newApi); setAuth(newAuth); setDemo(isDemo); setSession(newSession);
           } }
         />
       </SafeAreaView>
@@ -103,14 +107,14 @@ export default function App(): React.JSX.Element {
 
   const hostBadgeLabel =
     !hostSummary || hostSummary.status === 'online'
-      ? 'Host Online'
+      ? (!hostSummary ? 'Host não consultado' : 'Host Online')
       : hostSummary.status === 'degraded'
         ? 'Manutenção'
         : 'Host Offline';
 
   const hostBadgeTone =
     !hostSummary || hostSummary.status === 'online'
-      ? 'success'
+      ? (!hostSummary ? 'neutral' : 'success')
       : hostSummary.status === 'degraded'
         ? 'warning'
         : 'danger';
@@ -132,12 +136,12 @@ export default function App(): React.JSX.Element {
             <Badge label={ hostBadgeLabel } tone={ hostBadgeTone } showDot />
           </View>
 
-          <View
+          {demo ? <View
             accessible
             accessibilityLabel="Seletor de modo de simulação de estados da interface"
             style={ styles.simToolbar }
           >
-            <Text style={ styles.simLabel }>Simular UI:</Text>
+            <Text style={ styles.simLabel }>Modo demonstração:</Text>
             <View style={ styles.simPills }>
               { SIMULATION_MODES.map((item) => {
                 const selected = simMode === item.mode;
@@ -162,13 +166,13 @@ export default function App(): React.JSX.Element {
                 );
               }) }
             </View>
-          </View>
+          </View> : <Text style={styles.simLabel}>Modo real • Host remoto</Text>}
         </View>
 
         <View style={ styles.mainContent }>
           { activeTab === 'overview' ? (
             <OverviewScreen
-              api={ defaultControllerApi }
+              api={ api }
               refreshSignal={ refreshSignal }
               onHostUpdated={ handleHostUpdated }
             />
@@ -176,21 +180,21 @@ export default function App(): React.JSX.Element {
 
           { activeTab === 'groups' ? (
             <GroupsScreen
-              api={ defaultControllerApi }
+              api={ api }
               refreshSignal={ refreshSignal }
             />
           ) : null }
 
           { activeTab === 'ranking' ? (
             <RankingScreen
-              api={ defaultControllerApi }
+              api={ api }
               refreshSignal={ refreshSignal }
             />
           ) : null }
 
           { activeTab === 'settings' ? (
             <SettingsScreen
-              api={ defaultControllerApi }
+              api={ api }
               session={ session }
               refreshSignal={ refreshSignal }
               onLogout={ () => {

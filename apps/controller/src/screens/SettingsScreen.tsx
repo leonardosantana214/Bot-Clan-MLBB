@@ -8,6 +8,7 @@ import {
   View
 } from 'react-native';
 import { Badge, Button, Card, ErrorState, Loading } from '../components';
+import { RemoteControllerApi } from '../services/remote';
 import type {
   BotSettings,
   ControllerApi,
@@ -65,6 +66,7 @@ export function SettingsScreen({
   const [savedBanner, setSavedBanner] = useState<string | null>(null);
 
   const loadSettings = useCallback(async (): Promise<void> => {
+    if (api instanceof RemoteControllerApi) { setLoading(false); return; }
     setLoading(true);
     setError(null);
     try {
@@ -107,6 +109,16 @@ export function SettingsScreen({
     }
   };
 
+  if (api instanceof RemoteControllerApi) {
+    return <ScrollView contentContainerStyle={styles.scrollContent}>
+      <Card title="Exportações do Host" subtitle="Prévia CSV limitada a 8192 caracteres; configurações globais indisponíveis.">
+        {EXPORT_OPTIONS.map(opt => <Button key={opt.dataset} label={opt.label} loading={exportingDataset === opt.dataset} onPress={() => { void handleExport(opt.dataset); }} />)}
+        {error ? <Text style={styles.receiptMeta}>{error}</Text> : null}
+        {exportReceipt ? <View><Text style={styles.receiptTitle}>{exportReceipt.fileName} • {exportReceipt.rowCount} linhas</Text><Text selectable style={styles.csvCode}>{exportReceipt.previewCsv}</Text></View> : null}
+      </Card>
+      <Button label="Encerrar sessão" onPress={onLogout} />
+    </ScrollView>;
+  }
   if (loading) {
     return <Loading message="Carregando preferências e módulo de exportação..." />;
   }

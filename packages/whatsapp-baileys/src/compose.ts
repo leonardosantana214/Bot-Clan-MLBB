@@ -69,7 +69,7 @@ export function composeHost(options: HostOptions) {
     const offMembership = community ? observable.onMembershipChange?.call(adapter, event => { enqueue(async () => { await community.membership.onMembershipChange(event); }); }) : undefined;
     const timer = community ? setInterval(() => { enqueue(() => community.tick()); }, 15_000) : undefined;
     let closing: Promise<void> | undefined;
-    return { receive, async idle() { await pending; }, close(): Promise<void> {
+    return { storage, receive, async idle() { await pending; }, close(): Promise<void> {
       return closing ??= (async () => {
         stopped = true;
         if (timer) clearInterval(timer);

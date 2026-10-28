@@ -7,7 +7,12 @@ import {
 } from './schemas.js';
 import type { ControlTransport } from './transport.js';
 
-const randomUUID = (): string => globalThis.crypto.randomUUID();
+const randomUUID = (): string => {
+  if (globalThis.crypto.randomUUID) return globalThis.crypto.randomUUID();
+  // randomUUID is restricted to secure contexts; getRandomValues also works on a test LAN over HTTP.
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+};
 
 export type ClientErrorCode = ControlErrorCode | 'invalid_response' | 'not_logged_in' | 'transport';
 
