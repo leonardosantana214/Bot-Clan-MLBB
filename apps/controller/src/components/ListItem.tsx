@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import { colors, radii, spacing, typography } from '../theme';
+import { borders, colors, radii, spacing, typography } from '../theme';
 
 export interface ListItemProps {
   title: string;
@@ -45,9 +45,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: colors.surface,
     borderRadius: radii.sm,
-    borderWidth: 1,
+    borderBottomWidth: borders.hairline,
     borderColor: colors.border,
     marginBottom: spacing.xs,
     gap: spacing.sm
@@ -60,18 +60,21 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.textPrimary,
+    fontFamily: typography.families.medium,
     fontSize: typography.sizes.sm,
     fontWeight: typography.weights.semibold,
     lineHeight: typography.lineHeights.sm
   },
   subtitle: {
     color: colors.textSecondary,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.xs,
     lineHeight: typography.lineHeights.xs,
     marginTop: 2
   },
   meta: {
     color: colors.textMuted,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.xs,
     lineHeight: typography.lineHeights.xs,
     marginTop: 2

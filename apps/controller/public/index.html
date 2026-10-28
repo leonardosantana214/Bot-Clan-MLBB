@@ -1,0 +1,25 @@
+﻿<!DOCTYPE html>
+<html lang="%LANG_ISO_CODE%">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>%WEB_TITLE%</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <style>
+      /* Static shell mirrors theme/tokens.ts before React and local fonts load. */
+      html, body { height: 100%; background: #08080A; color: #EDE6D6; }
+      body { margin: 0; overflow: hidden; }
+      #root { display: flex; height: 100%; flex: 1; }
+      :focus-visible { outline: 1px solid #E3C77A; outline-offset: 3px; }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>AERO · Ative o JavaScript para abrir o painel administrativo.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

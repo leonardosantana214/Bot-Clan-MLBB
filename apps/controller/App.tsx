@@ -1,12 +1,18 @@
+import { AeroPressable as Pressable } from './src/components/AeroPressable';
 import React, { useCallback, useState } from 'react';
 import {
-  Pressable,
   SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
   View
 } from 'react-native';
+import { AeroMark, AeroWordmark, AeroIcon } from './src/components/AeroBrand';
+import { useFonts } from 'expo-font';
+import { CormorantGaramond_500Medium } from '@expo-google-fonts/cormorant-garamond/500Medium';
+import { Manrope_400Regular } from '@expo-google-fonts/manrope/400Regular';
+import { Manrope_500Medium } from '@expo-google-fonts/manrope/500Medium';
+import { Manrope_600SemiBold } from '@expo-google-fonts/manrope/600SemiBold';
 import { Badge } from './src/components';
 import { ConnectionScreen, WhatsAppGroupsScreen } from './src/screens/ConnectionScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -19,52 +25,48 @@ import {
   type SimulationMode
 } from './src/services/api';
 import { type AuthProvider, type AuthSession } from './src/services/auth';
-import { colors, radii, spacing, typography } from './src/theme';
+import { borders, colors, radii, spacing, typography } from './src/theme';
 
 type TabKey = 'connection' | 'overview' | 'groups' | 'ranking' | 'settings';
 
 interface TabItem {
   key: TabKey;
   label: string;
-  shortIcon: string;
   accessibilityLabel: string;
 }
 
 const TABS: ReadonlyArray<TabItem> = [
-  { key: 'connection', label: 'Conexão', shortIcon: '◇', accessibilityLabel: 'Aba Conexão WhatsApp' },
+  { key: 'connection', label: 'Conexão', accessibilityLabel: 'Aba Conexão WhatsApp' },
   {
     key: 'overview',
-    label: 'Visão Geral',
-    shortIcon: '◈',
+    label: 'Visão geral',
     accessibilityLabel: 'Aba Visão Geral e Estado do Host'
   },
   {
     key: 'groups',
     label: 'Grupos',
-    shortIcon: '⊞',
     accessibilityLabel: 'Aba Grupos e Rotas com Módulos'
   },
   {
     key: 'ranking',
-    label: 'Ranking XP',
-    shortIcon: '★',
+    label: 'Ranking',
     accessibilityLabel: 'Aba Ranking de XP do Clã'
   },
   {
     key: 'settings',
     label: 'Ajustes',
-    shortIcon: '⚙',
     accessibilityLabel: 'Aba Exportações CSV e Configurações'
   }
 ];
 
 const SIMULATION_MODES: ReadonlyArray<{ mode: SimulationMode; label: string }> = [
-  { mode: 'normal', label: 'Dados Mock' },
-  { mode: 'empty', label: 'Estado Vazio' },
-  { mode: 'error', label: 'Estado Erro' }
+  { mode: 'normal', label: 'Padrão' },
+  { mode: 'empty', label: 'Vazio' },
+  { mode: 'error', label: 'Erro' }
 ];
 
 export default function App(): React.JSX.Element {
+  const [fontsLoaded, fontError] = useFonts({ CormorantGaramond_500Medium, Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold });
   const [api, setApi] = useState<ControllerApi | null>(null);
   const [auth, setAuth] = useState<AuthProvider | null>(null);
   const [demo, setDemo] = useState(false);
@@ -91,6 +93,10 @@ export default function App(): React.JSX.Element {
   const handleHostUpdated = useCallback((updated: HostState): void => {
     setHostSummary(updated);
   }, []);
+
+  if (!fontsLoaded && !fontError) {
+    return <SafeAreaView style={[styles.safeArea, { alignItems: 'center', justifyContent: 'center', gap: spacing.xl }]}><AeroMark size={80} /><Text style={{ color: colors.gold, letterSpacing: 8 }}>AERO</Text><Text style={{ color: colors.textSecondary }}>Preparando o painel…</Text></SafeAreaView>;
+  }
 
   if (!session || !api) {
     return (
@@ -128,9 +134,7 @@ export default function App(): React.JSX.Element {
         <View style={ styles.topBar }>
           <View style={ styles.titleRow }>
             <View>
-              <Text accessibilityRole="header" style={ styles.appTitle }>
-                AeroBot Controller
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}><AeroMark size={32} /><AeroWordmark size={30} /></View>
               <Text style={ styles.appSubtitle }>
                 Clã Mobile Legends • { session.adminAlias }
               </Text>
@@ -143,7 +147,7 @@ export default function App(): React.JSX.Element {
             accessibilityLabel="Seletor de modo de simulação de estados da interface"
             style={ styles.simToolbar }
           >
-            <Text style={ styles.simLabel }>Modo demonstração:</Text>
+            <Badge label="DEMONSTRAÇÃO" tone="info" />
             <View style={ styles.simPills }>
               { SIMULATION_MODES.map((item) => {
                 const selected = simMode === item.mode;
@@ -206,7 +210,7 @@ export default function App(): React.JSX.Element {
 
         <View
           accessibilityRole="tablist"
-          accessibilityLabel="Navegação principal do AeroBot Controller"
+          accessibilityLabel="Navegação principal do AERO"
           style={ styles.bottomTabBar }
         >
           { TABS.map((tab) => {
@@ -220,9 +224,7 @@ export default function App(): React.JSX.Element {
                 onPress={ () => setActiveTab(tab.key) }
                 style={ [styles.tabItem, isSelected && styles.tabItemSelected] }
               >
-                <Text style={ [styles.tabIcon, isSelected && styles.tabIconSelected] }>
-                  { tab.shortIcon }
-                </Text>
+                <AeroIcon name={tab.key} color={isSelected ? colors.gold : colors.textMuted} />
                 <Text style={ [styles.tabLabel, isSelected && styles.tabLabelSelected] }>
                   { tab.label }
                 </Text>
@@ -244,31 +246,31 @@ const styles = StyleSheet.create({
   shell: {
     flex: 1,
     width: '100%',
-    maxWidth: 760,
+    maxWidth: 540,
     alignSelf: 'center',
-    backgroundColor: colors.background
+    backgroundColor: colors.background,
+    borderLeftWidth: borders.hairline, borderRightWidth: borders.hairline, borderColor: colors.border
   },
   topBar: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
+    borderBottomWidth: borders.hairline,
     borderBottomColor: colors.border,
     backgroundColor: colors.surface,
     gap: spacing.sm
   },
   titleRow: {
+    flexWrap: 'wrap',
+    gap: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between'
   },
-  appTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.bold
-  },
   appSubtitle: {
+    maxWidth: 240,
     color: colors.textSecondary,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.xs,
     marginTop: 2
   },
@@ -280,9 +282,12 @@ const styles = StyleSheet.create({
     gap: spacing.xs
   },
   simLabel: {
+    textTransform: 'uppercase',
+    letterSpacing: typography.tracking.label,
     color: colors.textMuted,
+    fontFamily: typography.families.bold,
     fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.semibold
+    fontWeight: typography.weights.regular
   },
   simPills: {
     flexDirection: 'row',
@@ -292,7 +297,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: spacing.sm,
     borderRadius: radii.pill,
-    borderWidth: 1,
+    borderWidth: borders.hairline,
     borderColor: colors.border,
     backgroundColor: colors.surfaceElevated
   },
@@ -302,8 +307,9 @@ const styles = StyleSheet.create({
   },
   simPillText: {
     color: colors.textSecondary,
+    fontFamily: typography.families.medium,
     fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.medium
+    fontWeight: typography.weights.regular
   },
   simPillTextSelected: {
     color: colors.primaryText,
@@ -317,7 +323,7 @@ const styles = StyleSheet.create({
   bottomTabBar: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
-    borderTopWidth: 1,
+    borderTopWidth: borders.hairline,
     borderTopColor: colors.border,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.xs
@@ -333,18 +339,13 @@ const styles = StyleSheet.create({
   tabItemSelected: {
     backgroundColor: colors.primarySoft
   },
-  tabIcon: {
-    color: colors.textMuted,
-    fontSize: typography.sizes.md,
-    marginBottom: 2
-  },
-  tabIconSelected: {
-    color: colors.primaryText
-  },
   tabLabel: {
+    textTransform: 'uppercase',
+    letterSpacing: 1,
     color: colors.textSecondary,
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.medium
+    fontFamily: typography.families.medium,
+    fontSize: typography.sizes.nav,
+    fontWeight: typography.weights.regular
   },
   tabLabelSelected: {
     color: colors.textPrimary,
@@ -354,8 +355,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 2,
     width: 20,
-    height: 2,
+    height: 1,
     borderRadius: radii.pill,
-    backgroundColor: colors.primary
+    backgroundColor: colors.gold
   }
 });

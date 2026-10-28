@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import { colors, radii, spacing, typography } from '../theme';
+import { borders, colors, radii, spacing, typography } from '../theme';
 
 export type BadgeTone = 'success' | 'warning' | 'danger' | 'info' | 'crimson' | 'neutral';
 
@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxs,
     paddingHorizontal: spacing.sm,
     borderRadius: radii.pill,
-    borderWidth: 1,
+    borderWidth: borders.hairline,
     gap: 6
   },
   dot: {
@@ -49,17 +49,20 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill
   },
   label: {
+    textTransform: 'uppercase',
+    letterSpacing: typography.tracking.label,
+    fontFamily: typography.families.bold,
     fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.semibold,
+    fontWeight: typography.weights.regular,
     lineHeight: typography.lineHeights.xs
   },
   bg_success: {
     backgroundColor: colors.successSoft,
-    borderColor: 'rgba(46, 204, 113, 0.35)'
+    borderColor: colors.success
   },
   bg_warning: {
     backgroundColor: colors.warningSoft,
-    borderColor: 'rgba(243, 156, 18, 0.35)'
+    borderColor: colors.warning
   },
   bg_danger: {
     backgroundColor: colors.dangerSoft,
@@ -67,7 +70,7 @@ const styles = StyleSheet.create({
   },
   bg_info: {
     backgroundColor: colors.infoSoft,
-    borderColor: 'rgba(52, 152, 219, 0.35)'
+    borderColor: colors.border
   },
   bg_crimson: {
     backgroundColor: colors.primarySoft,

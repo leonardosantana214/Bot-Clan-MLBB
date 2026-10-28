@@ -1,13 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
   type StyleProp,
   type ViewStyle
 } from 'react-native';
-import { colors, radii, spacing, typography } from '../theme';
+import { borders, colors, radii, spacing, typography } from '../theme';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost';
 export type ButtonSize = 'sm' | 'md' | 'lg';
@@ -35,6 +34,8 @@ export function Button({
   accessibilityHint,
   style
 }: ButtonProps): React.JSX.Element {
+  const [focused, setFocused] = useState(false);
+  const [hovered, setHovered] = useState(false);
   const isDisabled = disabled || loading;
 
   return (
@@ -44,21 +45,24 @@ export function Button({
       accessibilityHint={ accessibilityHint }
       accessibilityState={ { disabled: isDisabled, busy: loading } }
       disabled={ isDisabled }
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
       onPress={ onPress }
       style={ ({ pressed }) => [
         styles.base,
         styles[`variant_${variant}`],
         styles[`size_${size}`],
+        hovered && !isDisabled && styles.hovered,
+        focused && styles.focused,
         pressed && !isDisabled && styles.pressed,
         isDisabled && styles.disabled,
         style
       ] }
     >
       { loading ? (
-        <ActivityIndicator
-          size="small"
-          color={ variant === 'primary' || variant === 'danger' ? colors.textOnPrimary : colors.primaryText }
-        />
+        <Text accessibilityLiveRegion="polite" style={[styles.textBase, styles[`text_${variant}`]]}>Aguarde…</Text>
       ) : (
         <Text style={ [styles.textBase, styles[`text_${variant}`], styles[`textSize_${size}`]] }>
           { label }
@@ -74,27 +78,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radii.sm,
-    borderWidth: 1
+    borderWidth: borders.hairline
   },
   variant_primary: {
     backgroundColor: colors.primary,
-    borderColor: colors.primary
+    borderColor: colors.gold
   },
   variant_secondary: {
     backgroundColor: colors.surfaceElevated,
     borderColor: colors.border
   },
   variant_outline: {
-    backgroundColor: 'transparent',
+    backgroundColor: colors.transparent,
     borderColor: colors.primaryBorder
   },
   variant_danger: {
-    backgroundColor: colors.dangerSoft,
+    backgroundColor: colors.primary,
     borderColor: colors.primaryBorder
   },
   variant_ghost: {
-    backgroundColor: 'transparent',
-    borderColor: 'transparent'
+    backgroundColor: colors.transparent,
+    borderColor: colors.transparent
   },
   size_sm: {
     paddingVertical: spacing.xs,
@@ -111,14 +115,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     minHeight: 50
   },
+  hovered: { borderColor: colors.gold, backgroundColor: colors.surfaceHighlight },
+  focused: { borderColor: colors.textPrimary, borderWidth: borders.focus },
   pressed: {
-    opacity: 0.85
+    opacity: 0.72,
+    backgroundColor: colors.primarySoft
   },
   disabled: {
     opacity: 0.5
   },
   textBase: {
-    fontWeight: typography.weights.semibold,
+    fontFamily: typography.families.bold,
+    fontWeight: typography.weights.regular,
     textAlign: 'center'
   },
   text_primary: {
@@ -131,20 +139,23 @@ const styles = StyleSheet.create({
     color: colors.primaryText
   },
   text_danger: {
-    color: colors.dangerText
+    color: colors.textOnPrimary
   },
   text_ghost: {
     color: colors.textSecondary
   },
   textSize_sm: {
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.xs,
     lineHeight: typography.lineHeights.xs
   },
   textSize_md: {
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.sm,
     lineHeight: typography.lineHeights.sm
   },
   textSize_lg: {
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.md,
     lineHeight: typography.lineHeights.md
   }

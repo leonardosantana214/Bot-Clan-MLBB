@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, StyleSheet, Text, View } from 'react-native';
-import { colors, radii, spacing, typography } from '../theme';
+import { borders, colors, radii, spacing, typography } from '../theme';
 import { Button } from './Button';
 
 export interface ConfirmModalProps {
@@ -32,7 +32,7 @@ export function ConfirmModal({
     <Modal
       transparent
       visible={ visible }
-      animationType="fade"
+      animationType="none"
       onRequestClose={ onCancel }
     >
       <View style={ styles.backdrop }>
@@ -81,18 +81,20 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     backgroundColor: colors.surfaceElevated,
     borderRadius: radii.md,
-    borderWidth: 1,
+    borderWidth: borders.hairline,
     borderColor: colors.primaryBorder,
     padding: spacing.lg
   },
   title: {
     color: colors.textPrimary,
+    fontFamily: typography.families.display,
     fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.bold,
+    fontWeight: typography.weights.medium,
     marginBottom: spacing.xs
   },
   description: {
     color: colors.textSecondary,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.sm,
     lineHeight: typography.lineHeights.sm,
     marginBottom: spacing.lg

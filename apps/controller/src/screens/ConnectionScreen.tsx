@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'qrcode';
-import { Button, Card, ConfirmModal } from '../components';
+import { AeroMark } from '../components/AeroBrand';
+import { Button, Card, Badge, ConfirmModal } from '../components';
 import type { ControllerApi, WhatsAppConnection, WhatsAppGroup } from '../services/api';
-import { colors, spacing } from '../theme';
+import { borders, colors, spacing, typography } from '../theme';
 
 export function ConnectionScreen({ api }: { api: ControllerApi }): React.JSX.Element {
   const [connection, setConnection] = useState<WhatsAppConnection | null>(null);
@@ -53,13 +54,16 @@ export function ConnectionScreen({ api }: { api: ControllerApi }): React.JSX.Ele
     finally { setBusy(false); }
   };
   return <ScrollView contentContainerStyle={styles.container}>
-    <Card>
-      <Text style={styles.text}>Conexão WhatsApp{connection?.demonstration ? ' — DEMONSTRAÇÃO' : ''}</Text>
+    <Card title="Conexão" subtitle="WHATSAPP · CANAL PRIVADO">
+      {connection?.demonstration ? <Badge label="DEMONSTRAÇÃO" tone="info" /> : null}
       <Text style={styles.text}>Use um NÚMERO DE TESTE. Quem escaneia o QR dá ao bot controle da conta. Não compartilhe o QR.</Text>
       <Text style={styles.text}>Estado: {connection?.state ?? 'Consultando'}</Text>
       {connection?.state === 'conectado' ? <Text style={styles.text}>{connection.botName} {connection.botNumber}</Text> : null}
-      {connection?.demonstration && connection.state === 'aguardando_qr' ? <Text style={styles.text}>[QR FICTÍCIO — DEMONSTRAÇÃO — NÃO ESCANEÁVEL]</Text> : null}
-      {image ? <Image accessibilityLabel="QR privado de pareamento WhatsApp" source={{ uri: image }} style={{ width: 280, height: 280 }} /> : null}
+
+      <View style={styles.qrFrame}>
+        {image ? <Image accessibilityLabel="QR privado de pareamento WhatsApp" source={{ uri: image }} style={styles.qrImage} /> : <View style={styles.qrWaiting}><AeroMark size={64}/><Text style={styles.waitTitle}>{connection?.state === 'conectado' ? 'Canal estabelecido' : 'Aguardando pareamento'}</Text><Text style={styles.waitNote}>{connection?.demonstration ? 'QR fictício · demonstração não escaneável' : 'O QR privado aparecerá aqui quando disponível.'}</Text></View>}
+        <View style={[styles.corner, styles.topLeft]}/><View style={[styles.corner, styles.topRight]}/><View style={[styles.corner, styles.bottomLeft]}/><View style={[styles.corner, styles.bottomRight]}/>
+      </View>
       {expiresAt ? <Text style={styles.text}>Expiração aproximada: {new Date(expiresAt).toLocaleTimeString('pt-BR')}</Text> : null}
       {error ? <Text accessibilityRole="alert" style={styles.text}>{error}</Text> : null}
       <Button label="Gerar novo QR" disabled={busy} onPress={() => { void action(false); }} />
@@ -85,13 +89,27 @@ export function WhatsAppGroupsScreen({ api, demo }: { api: ControllerApi; demo: 
     finally { setBusy(false); }
   };
   return <ScrollView contentContainerStyle={styles.container}>
-    <Text style={styles.text}>Grupos do bot{demo ? ' — DEMONSTRAÇÃO' : ''}. CHAT e ADM devem ser distintos. Comandos administrativos só funcionam na rota ADM.</Text>
+    <Text style={styles.heading}>Grupos</Text>{demo ? <Badge label="DEMONSTRAÇÃO" tone="info" /> : null}<Text style={styles.text}>CHAT e ADM devem ser distintos. Comandos administrativos só funcionam na rota ADM.</Text>
     {!groups.length ? <Text style={styles.text}>Nenhum grupo disponível. Conecte o bot e entre nos grupos de teste.</Text> : null}
-    {groups.map(group => <Card key={group.id}><Text style={styles.text}>{group.name}</Text><Text style={styles.text}>{group.id}</Text><View>
+    {groups.map(group => <Card key={group.id} title={group.name}><Text style={styles.text}>{group.id}</Text><View>
       <Button label="Definir como CHAT" disabled={busy} onPress={() => { void assign(group.id, 'chatGroupId'); }} />
-      <Button label="Definir como ADM" disabled={busy} onPress={() => { void assign(group.id, 'adminGroupId'); }} />
+      <Button label="Definir como ADM" variant="outline" disabled={busy} onPress={() => { void assign(group.id, 'adminGroupId'); }} />
     </View></Card>)}
     {message ? <Text accessibilityRole="alert" style={styles.text}>{message}</Text> : null}
   </ScrollView>;
 }
-const styles = StyleSheet.create({ container: { gap: spacing.md, paddingBottom: spacing.md }, text: { color: colors.textPrimary, marginBottom: spacing.sm } });
+const styles = StyleSheet.create({
+  container: { gap: spacing.md, paddingBottom: spacing.xl },
+  text: { color: colors.textSecondary, fontFamily: typography.families.ui, fontSize: typography.sizes.bodyCompact, lineHeight: 21, marginBottom: spacing.sm },
+  heading: { color: colors.textPrimary, fontFamily: typography.families.display, fontSize: typography.sizes.heading },
+  qrFrame: { alignSelf: 'center', width: '100%', maxWidth: 288, aspectRatio: 1, padding: spacing.sm, marginVertical: spacing.xl, borderWidth: borders.hairline, borderColor: colors.border, position: 'relative' },
+  qrImage: { width: '100%', height: '100%', backgroundColor: colors.qrPaper },
+  qrWaiting: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
+  waitTitle: { color: colors.gold, fontFamily: typography.families.display, fontSize: typography.sizes.section, textAlign: 'center' },
+  waitNote: { color: colors.textMuted, fontFamily: typography.families.ui, fontSize: 12, textAlign: 'center', lineHeight: 18 },
+  corner: { position: 'absolute', width: 22, height: 22, borderColor: colors.gold },
+  topLeft: { top: -1, left: -1, borderTopWidth: borders.focus, borderLeftWidth: borders.focus },
+  topRight: { top: -1, right: -1, borderTopWidth: borders.focus, borderRightWidth: borders.focus },
+  bottomLeft: { bottom: -1, left: -1, borderBottomWidth: borders.focus, borderLeftWidth: borders.focus },
+  bottomRight: { bottom: -1, right: -1, borderBottomWidth: borders.focus, borderRightWidth: borders.focus }
+});

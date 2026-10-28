@@ -77,7 +77,7 @@ export interface BotSettings {
 export type SimulationMode = 'normal' | 'empty' | 'error';
 
 /**
- * Contrato da camada de dados do AeroBot Controller.
+ * Contrato da camada de dados da interface AERO.
  * Isola toda a UI de detalhes de transporte para futura substituição por cliente HTTP/WebSocket real.
  */
 export interface ControllerApi {
@@ -305,7 +305,7 @@ export class MockControllerApi implements ControllerApi {
         activeToday: 0,
         messagesToday: 0,
         hostStatus: 'offline',
-        clanName: 'A3RO B4STA',
+        clanName: 'AERO',
         seasonLabel: 'Temporada S34 • Sem dados sincronizados'
       };
     }
@@ -315,7 +315,7 @@ export class MockControllerApi implements ControllerApi {
       activeToday: 47,
       messagesToday: 2465,
       hostStatus: this.hostState.status,
-      clanName: 'A3RO B4STA',
+      clanName: 'AERO',
       seasonLabel: 'Temporada S34 • Divisão Mítica'
     };
   }

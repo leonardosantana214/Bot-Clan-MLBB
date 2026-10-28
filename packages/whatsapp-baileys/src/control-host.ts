@@ -69,7 +69,7 @@ export class HostController implements HostControlPort {
       activeToday: new Set(today.map(t => t.memberId)).size,
       messagesToday: today.length,
       hostStatus: state.status,
-      clanName: 'A3RO B4STA',
+      clanName: 'AERO',
       seasonLabel: new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' }).format(now)
     };
   }

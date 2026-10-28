@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import { colors, radii, spacing, typography } from '../theme';
+import { borders, colors, radii, spacing, typography } from '../theme';
 
 export interface CardProps {
   title?: string | undefined;
@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radii.md,
-    borderWidth: 1,
+    borderWidth: borders.hairline,
     borderColor: colors.border,
     padding: spacing.md,
     marginBottom: spacing.md
@@ -56,22 +56,26 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: spacing.sm,
     gap: spacing.sm
   },
   headerTitles: {
+    minWidth: 140,
     flex: 1
   },
   title: {
     color: colors.textPrimary,
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.bold,
-    lineHeight: typography.lineHeights.md
+    fontFamily: typography.families.display,
+    fontSize: typography.sizes.section,
+    fontWeight: typography.weights.medium,
+    lineHeight: 30
   },
   subtitle: {
     color: colors.textSecondary,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.xs,
     lineHeight: typography.lineHeights.xs,
     marginTop: 2

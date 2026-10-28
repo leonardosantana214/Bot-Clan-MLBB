@@ -1,6 +1,7 @@
+import { AeroIcon } from './AeroBrand';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, radii, spacing, typography } from '../theme';
+import { borders, colors, radii, spacing, typography } from '../theme';
 import { Button } from './Button';
 
 export interface EmptyStateProps {
@@ -24,7 +25,7 @@ export function EmptyState({
       style={ styles.container }
     >
       <View style={ styles.iconBadge }>
-        <Text style={ styles.iconText }>∅</Text>
+        <AeroIcon name="empty" />
       </View>
       <Text style={ styles.title }>{ title }</Text>
       <Text style={ styles.description }>{ description }</Text>
@@ -46,7 +47,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
     borderRadius: radii.md,
-    borderWidth: 1,
+    borderWidth: borders.hairline,
     borderColor: colors.border,
     padding: spacing.xl,
     alignItems: 'center',
@@ -58,7 +59,7 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: radii.pill,
     backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
+    borderWidth: borders.hairline,
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
@@ -66,18 +67,21 @@ const styles = StyleSheet.create({
   },
   iconText: {
     color: colors.textMuted,
+    fontFamily: typography.families.bold,
     fontSize: typography.sizes.xl,
-    fontWeight: typography.weights.bold
+    fontWeight: typography.weights.regular
   },
   title: {
     color: colors.textPrimary,
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.bold,
+    fontFamily: typography.families.display,
+    fontSize: typography.sizes.section,
+    fontWeight: typography.weights.medium,
     textAlign: 'center',
     marginBottom: spacing.xxs
   },
   description: {
     color: colors.textSecondary,
+    fontFamily: typography.families.ui,
     fontSize: typography.sizes.sm,
     lineHeight: typography.lineHeights.sm,
     textAlign: 'center',

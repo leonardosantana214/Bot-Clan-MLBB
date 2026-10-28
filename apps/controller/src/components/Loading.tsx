@@ -1,6 +1,7 @@
+import { AeroMark } from './AeroBrand';
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { colors, radii, spacing, typography } from '../theme';
+import { StyleSheet, Text, View } from 'react-native';
+import { borders, colors, radii, spacing, typography } from '../theme';
 
 export interface LoadingProps {
   message?: string | undefined;
@@ -14,7 +15,7 @@ export function Loading({ message = 'Sincronizando dados do clã...' }: LoadingP
       accessibilityLabel={ message }
       style={ styles.container }
     >
-      <ActivityIndicator size="large" color={ colors.primary } />
+      <AeroMark size={48} />
       <Text style={ styles.message }>{ message }</Text>
     </View>
   );
@@ -24,7 +25,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
     borderRadius: radii.md,
-    borderWidth: 1,
+    borderWidth: borders.hairline,
     borderColor: colors.border,
     padding: spacing.xl,
     alignItems: 'center',
@@ -34,8 +35,9 @@ const styles = StyleSheet.create({
   },
   message: {
     color: colors.textSecondary,
+    fontFamily: typography.families.medium,
     fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.medium,
+    fontWeight: typography.weights.regular,
     textAlign: 'center'
   }
 });

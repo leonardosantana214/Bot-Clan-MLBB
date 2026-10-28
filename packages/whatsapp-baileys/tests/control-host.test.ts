@@ -38,6 +38,6 @@ it('não inicia sem ambas variáveis e não inventa recursos ausentes', async ()
     expect(await startControlServer(db, new Adapter(), {})).toBeUndefined();
     expect(await startControlServer(db, new Adapter(), { AEROBOT_CONTROL_PORT: '8787' })).toBeUndefined();
     await expect(new HostController(db, new Adapter()).listGroups()).rejects.toBeInstanceOf(UnsupportedControlOperation);
-    await expect(new HostController(db, new Adapter()).getOverview()).resolves.toMatchObject({ clanName: 'A3RO B4STA', hostStatus: 'online', totalMembers: 0, messagesToday: 0 });
+    await expect(new HostController(db, new Adapter()).getOverview()).resolves.toMatchObject({ clanName: 'AERO', hostStatus: 'online', totalMembers: 0, messagesToday: 0 });
   } finally { db.close(); }
 });

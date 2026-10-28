@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "AeroBot Controller",
+    "name": "AERO",
     "slug": "aerobot-controller",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#090A0F",
-    "primaryColor": "#DC143C",
+    "backgroundColor": "#08080A",
+    "primaryColor": "#B3122B",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.aeroclan.aerobot.controller"
@@ -17,18 +17,20 @@
     "web": {
       "bundler": "metro",
       "output": "single",
-      "name": "AeroBot Controller",
-      "shortName": "AeroBot",
+      "name": "AERO",
+      "shortName": "AERO",
       "lang": "pt-BR",
       "scope": "/",
-      "themeColor": "#090A0F",
-      "backgroundColor": "#090A0F",
+      "themeColor": "#08080A",
+      "backgroundColor": "#08080A",
       "display": "standalone",
-      "orientation": "portrait"
+      "orientation": "portrait",
+      "favicon": "./assets/icon.png"
     },
     "plugins": [
       "expo-asset",
       "expo-font"
-    ]
+    ],
+    "icon": "./assets/icon.png"
   }
 }
