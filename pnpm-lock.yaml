@@ -72,6 +72,19 @@ importers:
         specifier: ~5.7.3
         version: 5.7.3
 
+  packages/control-protocol:
+    dependencies:
+      '@aerobot/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: ^3.24.2
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.5
+
   packages/core:
     dependencies:
       zod:
