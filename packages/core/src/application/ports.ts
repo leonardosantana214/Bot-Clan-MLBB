@@ -16,3 +16,6 @@ export interface XpLedger {
 export interface Clock { now(): number }
 export interface AuditEvent { readonly action: string; readonly actorId: string; readonly at: number; readonly subjectId: string }
 export interface AuditLog { record(event: AuditEvent): Promise<void> }
+
+// Atomically claim a group/message pair; false means already processed.
+export interface SeenMessageStore { claim(groupId: string, messageId: string, at: number): Promise<boolean> }

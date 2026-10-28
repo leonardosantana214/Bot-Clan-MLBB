@@ -7,7 +7,7 @@ export class InMemoryMemberRepository implements MemberRepository {
     return member ? structuredClone(member) : undefined;
   }
   async register(member: Member): Promise<boolean> {
-    if (this.members.has(member.id) || [...this.members.values()].some(existing => existing.identities.some(id => member.identities.some(candidate => candidate.platformUserId === id.platformUserId)))) return false;
+    if (new Set(member.identities.map(id => id.platformUserId)).size !== member.identities.length || this.members.has(member.id) || [...this.members.values()].some(existing => existing.identities.some(id => member.identities.some(candidate => candidate.platformUserId === id.platformUserId)))) return false;
     this.members.set(member.id, structuredClone(member));
     return true;
   }
