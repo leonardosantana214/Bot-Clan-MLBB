@@ -1,8 +1,7 @@
 // Manual host only. Never imported by the fake-socket tests.
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { createBot } from '@aerobot/core';
-import { SqliteStorage } from '@aerobot/storage-sqlite';
+import { composeHost } from './compose.js';
 import { ArenaProvider } from '@aerobot/mlbb-provider';
 import { createMlbbCommands } from '@aerobot/mlbb-commands';
 import { BaileysAdapter } from './index.js';
@@ -21,19 +20,19 @@ const groupId = process.env.AEROBOT_TEST_GROUP;
 // MLBB hero commands call the unofficial Rone Arena service (cached 5 min); AEROBOT_DISABLE_MLBB=1 turns them off.
 const mlbbEnabled = process.env.AEROBOT_DISABLE_MLBB !== '1';
 const mlbbCommands = mlbbEnabled ? createMlbbCommands(new ArenaProvider({ cachePath: join(adapter.sessionDir, 'mlbb-cache.json') })) : [];
-const allowedCommands = ['ping', 'ajuda', 'registrar', 'perfil', 'xp', 'rank', 'top', ...mlbbCommands.map(command => command.name)];
-const storage = new SqliteStorage(join(adapter.sessionDir, 'bot.sqlite'), groupId ? [{ platformGroupId: groupId, allowedCommands }] : []);
-const bot = createBot({ adapter, ...storage, clock: { now: Date.now }, extraCommands: mlbbCommands });
-adapter.setPaused(process.env.AEROBOT_PAUSED === '1');
-let pending = Promise.resolve();
-const off = adapter.onMessage(message => {
-  if (message.groupId === groupId) pending = pending.then(() => bot.receive(message)).catch(() => { process.stderr.write('Bot processing failed\n'); });
+const host = composeHost({
+  adapter, sessionDir: adapter.sessionDir, extraCommands: mlbbCommands,
+  ...(groupId ? { groupId } : {}),
+  ...(process.env.AEROBOT_ADMIN_GROUP ? { adminGroupId: process.env.AEROBOT_ADMIN_GROUP } : {}),
+  ...(process.env.AEROBOT_BACKUP_DIR ? { backupDir: process.env.AEROBOT_BACKUP_DIR } : {}),
+  getPassphrase: () => process.env.AEROBOT_BACKUP_PASSPHRASE
 });
+adapter.setPaused(process.env.AEROBOT_PAUSED === '1');
 let stopping = false;
 async function shutdown() {
   if (stopping) return; stopping = true;
-  off(); await adapter.disconnect(); await pending; storage.close();
+  try { await host.close(); } finally { await adapter.disconnect(); }
 }
 process.once('SIGINT', () => { void shutdown(); });
 process.once('SIGTERM', () => { void shutdown(); });
-await adapter.connect();
+try { await adapter.connect(); } catch (error) { await shutdown(); throw error; }
