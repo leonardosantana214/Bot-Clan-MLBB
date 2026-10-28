@@ -30,7 +30,10 @@ Pairing callbacks carry secrets directly to the private terminal, never to logs.
 The host refuses redirected stdout. QR and pairing-code paths are alternatives.
 
 Only the configured test group reaches the Bot; its route enables the existing
-`ping`, `ajuda`, `registrar`, `perfil`, and `xp` commands. Without a configured
+`ping`, `ajuda`, `registrar`, `perfil`, `xp`, `rank` and `top` commands, plus the
+MLBB hero commands `heroi`, `meta` and `counter` (these call the unofficial Rone
+Arena service with a 5 minute cache; set `AEROBOT_DISABLE_MLBB=1` to turn them
+off). Without a configured
 group, the host receives no commands. SQLite lives alongside the session.
 Set `AEROBOT_PAUSED=1` before startup for maintenance; library users can call
 `setPaused(true)` dynamically. Pausing rejects queued/new replies; an already
