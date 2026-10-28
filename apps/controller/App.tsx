@@ -8,7 +8,7 @@ import {
   View
 } from 'react-native';
 import { Badge } from './src/components';
-import { GroupsScreen } from './src/screens/GroupsScreen';
+import { ConnectionScreen, WhatsAppGroupsScreen } from './src/screens/ConnectionScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { OverviewScreen } from './src/screens/OverviewScreen';
 import { RankingScreen } from './src/screens/RankingScreen';
@@ -21,7 +21,7 @@ import {
 import { type AuthProvider, type AuthSession } from './src/services/auth';
 import { colors, radii, spacing, typography } from './src/theme';
 
-type TabKey = 'overview' | 'groups' | 'ranking' | 'settings';
+type TabKey = 'connection' | 'overview' | 'groups' | 'ranking' | 'settings';
 
 interface TabItem {
   key: TabKey;
@@ -31,6 +31,7 @@ interface TabItem {
 }
 
 const TABS: ReadonlyArray<TabItem> = [
+  { key: 'connection', label: 'Conexão', shortIcon: '◇', accessibilityLabel: 'Aba Conexão WhatsApp' },
   {
     key: 'overview',
     label: 'Visão Geral',
@@ -98,7 +99,8 @@ export default function App(): React.JSX.Element {
         <LoginScreen
           onSessionExpired={() => { setSession(null); setApi(null); setAuth(null); setHostSummary(null); setActiveTab('overview'); }}
           onAuthenticated={ (newSession, newApi, newAuth, isDemo) => {
-            setApi(newApi); setAuth(newAuth); setDemo(isDemo); setSession(newSession);
+            setApi(newApi); setAuth(newAuth); setDemo(isDemo); setSession(newSession); setActiveTab('connection');
+            void newApi.getConnection().then(state => { if (state.state === 'conectado') setActiveTab('overview'); }).catch(() => undefined);
           } }
         />
       </SafeAreaView>
@@ -170,6 +172,7 @@ export default function App(): React.JSX.Element {
         </View>
 
         <View style={ styles.mainContent }>
+          { activeTab === 'connection' ? <ConnectionScreen api={api} /> : null }
           { activeTab === 'overview' ? (
             <OverviewScreen
               api={ api }
@@ -179,10 +182,7 @@ export default function App(): React.JSX.Element {
           ) : null }
 
           { activeTab === 'groups' ? (
-            <GroupsScreen
-              api={ api }
-              refreshSignal={ refreshSignal }
-            />
+            <WhatsAppGroupsScreen api={api} demo={demo} />
           ) : null }
 
           { activeTab === 'ranking' ? (

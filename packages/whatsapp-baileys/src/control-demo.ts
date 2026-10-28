@@ -11,7 +11,19 @@ if (!process.stdout.isTTY) throw new Error('A demonstração exige terminal loca
 const folder = await mkdtemp(join(tmpdir(), 'aerobot-control-demo-'));
 const storage = new SqliteStorage(join(folder, 'demo.sqlite'));
 class DemoAdapter extends FakeWhatsAppAdapter {
-  readonly connectionState = 'open';
+  readonly sessionDir = folder;
+  private started = 0;
+  private ended = false;
+  get connectionState() { return this.started && Date.now() - this.started >= 15_000 ? 'open' : 'disconnected'; }
+  get connectionSnapshot(): import('@aerobot/control-protocol').WhatsAppConnection {
+    if (this.ended) return { state: 'sessao_encerrada', demonstration: true };
+    if (!this.started) return { state: 'desconectado', demonstration: true };
+    if (this.connectionState === 'open') return { state: 'conectado', botName: 'Bot DEMONSTRAÇÃO', demonstration: true };
+    return { state: 'aguardando_qr', qr: `DEMONSTRAÇÃO NÃO ESCANEÁVEL ${Math.floor(Date.now() / 5000)}`, expiresAt: (Math.floor(Date.now() / 5000) + 1) * 5000, demonstration: true };
+  }
+  async startPairing() { this.started = Date.now(); this.ended = false; }
+  async logoutSession() { this.started = 0; this.ended = true; }
+  async listWhatsAppGroups() { return this.connectionState === 'open' ? [{ id: 'demo-chat@g.us', name: 'CHAT DEMONSTRAÇÃO' }, { id: 'demo-adm@g.us', name: 'ADM DEMONSTRAÇÃO' }] : []; }
   readonly pendingQueueCount = 0;
   readonly processedPerMinute = 0;
   readonly lastConnectedAt = new Date().toISOString();

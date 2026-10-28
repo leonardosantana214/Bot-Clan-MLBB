@@ -1,9 +1,11 @@
+import type { GroupRoles } from './api';
 import { ControlClient, ControlClientError, HttpTransport } from '@aerobot/control-protocol/browser';
 import type { ControllerApi, ModuleKey, ExportDataset, BotSettings, XpRankEntry, SimulationMode } from './api';
 import type { AuthProvider, AuthSession, AuthResult } from './auth';
 
 export function remoteError(error: unknown): string {
   if (error instanceof ControlClientError) {
+    if (error.code === 'insecure_network' || error.code === 'invalid_groups') return error.message;
     if (error.code === 'unsupported') return 'Indisponível: operação não suportada neste Host.';
     if (error.code === 'invalid_credentials') return 'Senha inválida.';
     if (error.code === 'unauthenticated' || error.code === 'not_logged_in') return 'Sessão expirada. Entre novamente.';
@@ -15,6 +17,11 @@ export function remoteError(error: unknown): string {
 export class RemoteControllerApi implements ControllerApi {
   constructor(readonly client: ControlClient) {}
   private async run<T>(work: () => Promise<T>): Promise<T> { try { return await work(); } catch (error) { throw new Error(remoteError(error)); } }
+  getConnection() { return this.run(() => this.client.getConnection()); }
+  startPairing() { return this.run(() => this.client.startPairing()); }
+  disconnectSession(confirm: true) { return this.run(() => this.client.disconnectSession(confirm)); }
+  listWhatsAppGroups() { return this.run(() => this.client.listWhatsAppGroups()); }
+  setGroupRoles(roles: GroupRoles) { return this.run(() => this.client.setGroupRoles(roles)); }
   getSimulationMode(): SimulationMode { return 'normal'; }
   setSimulationMode(): void { throw new Error('Simulação indisponível no modo real.'); }
   getOverview() { return this.run(() => this.client.getOverview()); }

@@ -1,5 +1,8 @@
-import type { z } from 'zod';
+import { z } from 'zod';
+const StartedSchema = z.object({ started: z.boolean() });
+const DisconnectedSchema = z.object({ disconnected: z.boolean() });
 import {
+  ConnectionSchema, WhatsAppGroupSchema, GroupRolesResultSchema, type GroupRoles,
   ControlResponseSchema, ExportReceiptSchema, GroupRouteSchema, HostStateSchema, LoginResultSchema, LogoutResultSchema,
   OverviewSchema, RankEntrySchema, SCHEMA_VERSION, SessionInfoSchema,
   type ControlErrorCode, type ExportDataset, type ExportReceipt, type GroupModulesPatch, type GroupRoute, type HostState,
@@ -54,6 +57,11 @@ export class ControlClient {
     try { await this.call('logout', all ? { all: true } : {}, LogoutResultSchema); } finally { this.token = undefined; }
   }
   renewSession(): Promise<{ sessionId: string; expiresAt: number }> { return this.call('renewSession', {}, SessionInfoSchema); }
+  getConnection() { return this.call('getConnection', {}, ConnectionSchema); }
+  listWhatsAppGroups() { return this.call('listWhatsAppGroups', {}, WhatsAppGroupSchema.array()); }
+  startPairing(o: CommandOptions = {}) { return this.call('startPairing', {}, StartedSchema, { key: o.idempotencyKey ?? randomUUID() }); }
+  disconnectSession(confirm: true, o: CommandOptions = {}) { return this.call('disconnectSession', { confirm }, DisconnectedSchema, { key: o.idempotencyKey ?? randomUUID() }); }
+  setGroupRoles(roles: GroupRoles, o: CommandOptions = {}) { return this.call('setGroupRoles', roles, GroupRolesResultSchema, { key: o.idempotencyKey ?? randomUUID() }); }
   getOverview(): Promise<Overview> { return this.call('getOverview', {}, OverviewSchema); }
   getHostState(): Promise<HostState> { return this.call('getHostState', {}, HostStateSchema); }
   listGroups(): Promise<GroupRoute[]> { return this.call('listGroups', {}, GroupRouteSchema.array()); }

@@ -23,14 +23,34 @@ const base = {
 };
 const empty = z.object({}).strict();
 
-export const MUTATING_TYPES = ['setResponsesPaused', 'setMaintenanceMode', 'setGroupModules', 'requestExport'] as const;
+export const MUTATING_TYPES = ['startPairing', 'disconnectSession', 'setGroupRoles', 'setResponsesPaused', 'setMaintenanceMode', 'setGroupModules', 'requestExport'] as const;
 export type MutatingType = (typeof MUTATING_TYPES)[number];
 export function isMutating(type: string): type is MutatingType { return (MUTATING_TYPES as readonly string[]).includes(type); }
+
+export const WhatsAppGroupSchema = z.object({ id: z.string().regex(/^.+@g\.us$/), name: z.string().max(256) }).strict();
+export const GroupRolesSchema = z.object({ chatGroupId: WhatsAppGroupSchema.shape.id.optional(), adminGroupId: WhatsAppGroupSchema.shape.id.optional() }).strict();
+export const GroupRolesResultSchema = GroupRolesSchema.extend({ restartRequired: z.boolean(), message: z.string() });
+export const ConnectionSchema = z.discriminatedUnion('state', [
+  z.object({ state: z.literal('desconectado'), demonstration: z.boolean().optional() }).strict(),
+  z.object({ state: z.literal('conectando'), demonstration: z.boolean().optional() }).strict(),
+  z.object({ state: z.literal('sessao_encerrada'), demonstration: z.boolean().optional() }).strict(),
+  z.object({ state: z.literal('aguardando_qr'), qr: z.string().min(1).max(8192), expiresAt: z.number().int().positive(), demonstration: z.boolean().optional() }).strict(),
+  z.object({ state: z.literal('conectado'), botNumber: z.string().max(20).optional(), botName: z.string().max(128).optional(), demonstration: z.boolean().optional() }).strict()
+]);
+export type WhatsAppConnection = z.infer<typeof ConnectionSchema>;
+export type WhatsAppGroup = z.infer<typeof WhatsAppGroupSchema>;
+export type GroupRoles = z.infer<typeof GroupRolesSchema>;
+export type GroupRolesResult = z.infer<typeof GroupRolesResultSchema>;
 
 export const ControlRequestSchema = z.discriminatedUnion('type', [
   z.object({ ...base, type: z.literal('login'), payload: z.object({ password: z.string().min(1).max(1024) }).strict() }),
   z.object({ ...base, type: z.literal('logout'), payload: z.object({ all: z.boolean().optional() }).strict() }),
   z.object({ ...base, type: z.literal('renewSession'), payload: empty }),
+  z.object({ ...base, type: z.literal('getConnection'), payload: empty }),
+  z.object({ ...base, type: z.literal('listWhatsAppGroups'), payload: empty }),
+  z.object({ ...base, type: z.literal('startPairing'), idempotencyKey: Id, payload: empty }),
+  z.object({ ...base, type: z.literal('disconnectSession'), idempotencyKey: Id, payload: z.object({ confirm: z.literal(true) }).strict() }),
+  z.object({ ...base, type: z.literal('setGroupRoles'), idempotencyKey: Id, payload: GroupRolesSchema }),
   z.object({ ...base, type: z.literal('getOverview'), payload: empty }),
   z.object({ ...base, type: z.literal('getHostState'), payload: empty }),
   z.object({ ...base, type: z.literal('listGroups'), payload: empty }),
@@ -71,7 +91,7 @@ export const LogoutResultSchema = z.object({ revoked: z.number().int().nonnegati
 
 export const ERROR_CODES = [
   'invalid_request', 'unsupported_version', 'unauthenticated', 'invalid_credentials', 'rate_limited',
-  'expired', 'conflict', 'not_found', 'renewal_limit', 'unsupported', 'internal'
+  'insecure_network', 'invalid_groups', 'expired', 'conflict', 'not_found', 'renewal_limit', 'unsupported', 'internal'
 ] as const;
 export type ControlErrorCode = (typeof ERROR_CODES)[number];
 export const ControlErrorSchema = z.object({

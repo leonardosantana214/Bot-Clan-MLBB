@@ -1,7 +1,7 @@
 import { createServer, type Server } from 'node:http';
 import type { ControlMessageHandler } from './transport.js';
 
-export interface HttpControlServerOptions { port: number; host?: '127.0.0.1' | '0.0.0.0'; origins?: readonly string[]; timeoutMs?: number }
+export interface HttpControlServerOptions { port: number; host?: '127.0.0.1' | '0.0.0.0'; origins?: readonly string[]; timeoutMs?: number; trustNetwork?: boolean }
 export class HttpControlServer {
   private readonly server: Server;
   constructor(handler: ControlMessageHandler, private readonly options: HttpControlServerOptions) {
@@ -39,7 +39,7 @@ export class HttpControlServer {
         try { raw = JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown; } catch { end(400); return; }
         // HTTP peer identity, rather than a rotating client supplied throttle key.
         if (typeof raw === 'object' && raw !== null) raw = { ...raw, origin: req.socket.remoteAddress ?? 'unknown' };
-        void handler.handle(raw).then(result => { if (!res.writableEnded) res.end(JSON.stringify(result)); }, () => { if (!res.writableEnded) end(500); });
+        void handler.handle(raw, { pairingAllowed: options.trustNetwork === true || ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress ?? '') }).then(result => { if (!res.writableEnded) res.end(JSON.stringify(result)); }, () => { if (!res.writableEnded) end(500); });
       });
     });
     this.server.requestTimeout = options.timeoutMs ?? 10_000;
