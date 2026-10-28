@@ -31,7 +31,7 @@ app-state-sync-*.json
 *.sqlite3
 *.db
 backups/
-exports/
+/exports/
 logs/
 *.log
 
