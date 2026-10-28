@@ -1,3 +1,4 @@
+import type { WhatsAppConnection, WhatsAppGroup, GroupRoles, GroupRolesResult } from './schemas.js';
 import { createHash } from 'node:crypto';
 import type { AuditLog, Clock } from '@aerobot/core';
 import { CommandLog, InvalidTransitionError, type CommandOutcome, type CommandRecord } from './command-state.js';
@@ -12,6 +13,11 @@ import type { ControlMessageHandler } from './transport.js';
 
 /** Port the Host implements. The Host stays the source of truth; the server only authenticates, validates and audits. */
 export interface HostControlPort {
+  getConnection?(): Promise<WhatsAppConnection>;
+  startPairing?(): Promise<{ started: boolean }>;
+  disconnectSession?(): Promise<{ disconnected: boolean }>;
+  listWhatsAppGroups?(): Promise<WhatsAppGroup[]>;
+  setGroupRoles?(roles: GroupRoles): Promise<GroupRolesResult>;
   getOverview(): Promise<Overview>;
   getHostState(): Promise<HostState>;
   setResponsesPaused(paused: boolean): Promise<HostState>;
@@ -39,11 +45,16 @@ export interface ControlServerOptions {
   logger?: ControlLogger;
 }
 
+class InsecurePairing extends Error {}
+
 type Result = { outcome: CommandOutcome; command?: { id: string; state: CommandState }; replayed?: boolean };
 
+export class InvalidGroupRoles extends Error {}
 export class UnsupportedControlOperation extends Error { constructor() { super('Operação não suportada.'); } }
 
 const MESSAGES: Record<ControlErrorCode, string> = {
+  insecure_network: 'Pareamento bloqueado: use loopback ou TLS/túnel confiável configurado no Host.',
+  invalid_groups: 'Escolha grupos conhecidos e distintos para CHAT e ADM.',
   invalid_request: 'Requisicao invalida.',
   unsupported_version: 'Versao do protocolo nao suportada.',
   unauthenticated: 'Sessao ausente, invalida ou expirada.',
@@ -81,7 +92,7 @@ export class ControlServer implements ControlMessageHandler {
   get commandLog(): CommandLog { return this.commands; }
   get activeSessions(): number { return this.sessions.size; }
 
-  async handle(raw: unknown): Promise<unknown> {
+  async handle(raw: unknown, context?: { pairingAllowed: boolean }): Promise<unknown> {
     const requestId = extractRequestId(raw);
     const reply = (r: Result) => ({
       schemaVersion: SCHEMA_VERSION, requestId,
@@ -94,14 +105,14 @@ export class ControlServer implements ControlMessageHandler {
       }
       const parsed = ControlRequestSchema.safeParse(raw);
       if (!parsed.success) return reply({ outcome: fail('invalid_request') });
-      return reply(await this.dispatch(parsed.data));
+      return reply(await this.dispatch(parsed.data, context?.pairingAllowed === true));
     } catch {
       this.o.logger?.warn('control.internal_error');
       return reply({ outcome: fail('internal') });
     }
   }
 
-  private async dispatch(req: ControlRequest): Promise<Result> {
+  private async dispatch(req: ControlRequest, pairingAllowed: boolean): Promise<Result> {
     if (req.type === 'login') return this.login(req.origin ?? 'unknown', req.payload.password);
 
     const session = this.sessions.validate(req.token);
@@ -112,6 +123,17 @@ export class ControlServer implements ControlMessageHandler {
       const revoked = req.payload.all ? this.sessions.revokeAll() : (this.sessions.revoke(req.token) ? 1 : 0);
       await this.audit(req.payload.all ? 'control.logout.all' : 'control.logout', actor, 'session');
       return { outcome: { ok: true, data: { revoked } } };
+    }
+    if (req.type === 'startPairing' || req.type === 'getConnection' || req.type === 'listWhatsAppGroups') {
+      await this.audit(`control.${req.type}`, actor, 'host');
+      if (this.now() >= req.expiresAt) return { outcome: fail('expired') };
+      if (req.type === 'startPairing' && !pairingAllowed) return { outcome: fail('insecure_network') };
+      if (req.type === 'getConnection') return this.read(async () => {
+        const state = await this.capability('getConnection')();
+        if (state.state === 'aguardando_qr' && !pairingAllowed) throw new InsecurePairing();
+        return state;
+      });
+      if (req.type === 'listWhatsAppGroups') return this.read(() => this.capability('listWhatsAppGroups')());
     }
     if (isMutating(req.type)) return this.mutate(req as ControlRequest & { type: MutatingType; idempotencyKey: string }, session, actor);
 
@@ -132,8 +154,13 @@ export class ControlServer implements ControlMessageHandler {
     }
   }
 
+  private capability<K extends 'getConnection' | 'startPairing' | 'disconnectSession' | 'listWhatsAppGroups' | 'setGroupRoles'>(key: K): NonNullable<HostControlPort[K]> {
+    const fn = this.o.host[key];
+    if (!fn) throw new UnsupportedControlOperation();
+    return fn.bind(this.o.host) as NonNullable<HostControlPort[K]>;
+  }
   private async read(fn: () => Promise<unknown>): Promise<Result> {
-    try { return { outcome: { ok: true, data: await fn() } }; } catch (error) { this.o.logger?.warn('control.host_error'); return { outcome: fail(error instanceof UnsupportedControlOperation ? 'unsupported' : 'internal') }; }
+    try { return { outcome: { ok: true, data: await fn() } }; } catch (error) { this.o.logger?.warn('control.host_error'); return { outcome: fail(error instanceof InsecurePairing ? 'insecure_network' : error instanceof InvalidGroupRoles ? 'invalid_groups' : error instanceof UnsupportedControlOperation ? 'unsupported' : 'internal') }; }
   }
 
   private async login(origin: string, password: string): Promise<Result> {
@@ -202,7 +229,7 @@ export class ControlServer implements ControlMessageHandler {
       this.o.logger?.warn('control.command_failed', { type: req.type });
       if (rec.state === 'em_execucao') this.commands.transition(rec.id, 'falhou', 'host');
       await this.audit(`${actionOf(req)}.failed`, actor, subjectOf(req)).catch(() => undefined);
-      return done(fail(error instanceof UnsupportedControlOperation ? 'unsupported' : 'internal'));
+      return done(fail(error instanceof InsecurePairing ? 'insecure_network' : error instanceof InvalidGroupRoles ? 'invalid_groups' : error instanceof UnsupportedControlOperation ? 'unsupported' : 'internal'));
     }
   }
 
@@ -210,6 +237,9 @@ export class ControlServer implements ControlMessageHandler {
 
   private runHost(req: ControlRequest & { type: MutatingType }): Promise<unknown> {
     switch (req.type) {
+      case 'startPairing': return this.capability('startPairing')();
+      case 'disconnectSession': return this.capability('disconnectSession')();
+      case 'setGroupRoles': return this.capability('setGroupRoles')(req.payload);
       case 'setResponsesPaused': return this.o.host.setResponsesPaused(req.payload.paused);
       case 'setMaintenanceMode': return this.o.host.setMaintenanceMode(req.payload.enabled);
       case 'setGroupModules': return this.o.host.setGroupModules(req.payload.groupId, req.payload.modules);

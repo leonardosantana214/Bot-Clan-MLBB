@@ -8,7 +8,7 @@
 export interface ControlTransport { send(message: unknown): Promise<unknown> }
 
 /** The server-side entry point a transport adapter calls. */
-export interface ControlMessageHandler { handle(message: unknown): Promise<unknown> }
+export interface ControlMessageHandler { handle(message: unknown, context?: { pairingAllowed: boolean }): Promise<unknown> }
 
 /** Test transport: JSON round-trip (simulates the wire) straight into a handler. */
 export class InMemoryTransport implements ControlTransport {

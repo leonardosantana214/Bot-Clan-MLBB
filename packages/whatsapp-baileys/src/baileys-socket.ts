@@ -1,10 +1,17 @@
 import makeWASocket, { useMultiFileAuthState } from '@whiskeysockets/baileys';
 import pino from 'pino';
-import { mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
+import { mkdir, readdir, rm } from 'node:fs/promises';
 import type { AdapterSocket, SocketEvents, SocketFactory } from './socket.js';
 
 /** No library log payloads cross this boundary (they can contain auth material). */
 export class BaileysSocketFactory implements SocketFactory {
+  async clearSession(sessionDir: string): Promise<void> {
+    // Only Baileys auth files; never remove the database, backups or role configuration.
+    for (const name of await readdir(sessionDir)) {
+      if (/^(creds|(?:pre-key|session|sender-key|sender-key-memory|app-state-sync-key|app-state-sync-version|lid-mapping|device-list|tctoken|identity-key)-.+)\.json$/.test(name)) await rm(join(sessionDir, name), { force: true });
+    }
+  }
   async create(sessionDir: string): Promise<AdapterSocket> {
     await mkdir(sessionDir, { recursive: true, mode: 0o700 });
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
@@ -21,7 +28,7 @@ export class BaileysSocketFactory implements SocketFactory {
           const listener = (update: Partial<import('@whiskeysockets/baileys').ConnectionState>) => {
             const error = update.lastDisconnect?.error;
             const statusCode = authFailed ? 500 : (error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode;
-            emit<'connection'>({ ...(update.connection ? { connection: update.connection } : {}), ...(update.qr ? { qr: update.qr } : {}), ...(statusCode ? { statusCode } : {}) });
+            emit<'connection'>({ ...(update.connection ? { connection: update.connection } : {}), ...(update.connection === 'open' && socket.user ? { botJid: socket.user.id, ...(socket.user.name ? { botName: socket.user.name } : {}) } : {}), ...(update.qr ? { qr: update.qr } : {}), ...(statusCode ? { statusCode } : {}) });
           };
           socket.ev.on('connection.update', listener); return () => { socket.ev.off('connection.update', listener); };
         }
@@ -38,6 +45,8 @@ export class BaileysSocketFactory implements SocketFactory {
         await socket.waitForConnectionUpdate(async update => Boolean(update.qr), 60000);
         return socket.requestPairingCode(phone);
       },
+      async logout() { await socket.logout(); },
+      async listGroups() { return Object.values(await socket.groupFetchAllParticipating()).map(g => ({ id: g.id, name: g.subject.slice(0, 256) })); },
       async close() { socket.ev.off('creds.update', creds); socket.end(undefined); await saves; }
     };
   }

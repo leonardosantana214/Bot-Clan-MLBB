@@ -1,3 +1,6 @@
+import type { WhatsAppConnection, WhatsAppGroup, GroupRoles, GroupRolesResult } from '@aerobot/control-protocol/browser';
+export type { WhatsAppConnection, WhatsAppGroup, GroupRoles, GroupRolesResult } from '@aerobot/control-protocol/browser';
+
 export type HostConnectionStatus = 'online' | 'degraded' | 'offline';
 
 export interface OverviewStats {
@@ -78,6 +81,11 @@ export type SimulationMode = 'normal' | 'empty' | 'error';
  * Isola toda a UI de detalhes de transporte para futura substituição por cliente HTTP/WebSocket real.
  */
 export interface ControllerApi {
+  getConnection(): Promise<WhatsAppConnection>;
+  startPairing(): Promise<{ started: boolean }>;
+  disconnectSession(confirm: true): Promise<{ disconnected: boolean }>;
+  listWhatsAppGroups(): Promise<WhatsAppGroup[]>;
+  setGroupRoles(roles: GroupRoles): Promise<GroupRolesResult>;
   getSimulationMode(): SimulationMode;
   setSimulationMode(mode: SimulationMode): void;
   getOverview(): Promise<OverviewStats>;
@@ -247,6 +255,25 @@ const INITIAL_SETTINGS: BotSettings = {
 };
 
 export class MockControllerApi implements ControllerApi {
+  private pairingStarted = 0;
+  private disconnected = false;
+  private roles: GroupRoles = {};
+  async getConnection(): Promise<WhatsAppConnection> {
+    this.ensureNotError();
+    if (this.disconnected) return { state: 'sessao_encerrada', demonstration: true };
+    if (!this.pairingStarted) return { state: 'desconectado', demonstration: true };
+    if (Date.now() - this.pairingStarted > 15_000) return { state: 'conectado', botName: 'Bot DEMONSTRAÇÃO', demonstration: true };
+    return { state: 'aguardando_qr', qr: `DEMONSTRAÇÃO NÃO ESCANEÁVEL ${Math.floor(Date.now() / 5000)}`, expiresAt: (Math.floor(Date.now() / 5000) + 1) * 5000, demonstration: true };
+  }
+  async startPairing() { this.ensureNotError(); this.pairingStarted = Date.now(); this.disconnected = false; return { started: true }; }
+  async disconnectSession(confirm: true) { if (confirm !== true) throw new Error('Confirmação obrigatória'); this.disconnected = true; this.pairingStarted = 0; return { disconnected: true }; }
+  async listWhatsAppGroups(): Promise<WhatsAppGroup[]> { return (await this.getConnection()).state === 'conectado' ? [{ id: 'demo-chat@g.us', name: 'CHAT — DEMONSTRAÇÃO' }, { id: 'demo-adm@g.us', name: 'ADM — DEMONSTRAÇÃO' }] : []; }
+  async setGroupRoles(patch: GroupRoles): Promise<GroupRolesResult> {
+    const roles = { ...this.roles, ...patch }, groups = await this.listWhatsAppGroups();
+    if ((roles.chatGroupId && !groups.some(g => g.id === roles.chatGroupId)) || (roles.adminGroupId && !groups.some(g => g.id === roles.adminGroupId)) || (roles.chatGroupId && roles.chatGroupId === roles.adminGroupId)) throw new Error('Escolha grupos conhecidos e distintos.');
+    this.roles = roles;
+    return { ...roles, restartRequired: false, message: 'DEMONSTRAÇÃO: papéis simulados.' };
+  }
   private mode: SimulationMode = 'normal';
   private hostState: HostState = { ...INITIAL_HOST_STATE };
   private groups: GroupRoute[] = INITIAL_GROUPS.map((g) => ({

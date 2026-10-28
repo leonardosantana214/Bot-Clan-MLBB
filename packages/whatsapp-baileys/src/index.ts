@@ -1,3 +1,4 @@
+import type { WhatsAppConnection } from '@aerobot/control-protocol';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { ConnectionState, InboundMessage, MembershipChange, ObservableWhatsAppAdapter } from '@aerobot/core';
@@ -17,6 +18,8 @@ export function normalize(message: WireMessage): InboundMessage | undefined {
   return { id: key.id, groupId: key.remoteJid, senderId: key.participant, text, fromMe: false };
 }
 type Handler<T> = (value: T) => void;
+/** Internal adapter capability; the public control snapshot excludes the raw JID. */
+export type AdapterPairingState = WhatsAppConnection & { botJid?: string };
 export interface AdapterOptions {
   sessionDir?: string;
   pairing?: { mode: 'qr'; onQr: Handler<string> } | { mode: 'code'; phone: string; onCode: Handler<string> };
@@ -50,6 +53,66 @@ export class BaileysAdapter implements ObservableWhatsAppAdapter {
       if (value !== undefined && (!Number.isSafeInteger(value) || value < 1)) throw new Error('Limits must be positive integers');
     }
   }
+  private pairingState: AdapterPairingState = { state: 'desconectado' };
+  private pairingObservers = new Set<Handler<AdapterPairingState>>();
+  private qrTimer: ReturnType<typeof setTimeout> | undefined;
+  get connectionSnapshot(): WhatsAppConnection {
+    const snapshot = this.pairingSnapshot;
+    delete snapshot.botJid;
+    return snapshot;
+  }
+  get pairingSnapshot(): AdapterPairingState {
+    if (this.pairingState.state === 'aguardando_qr' && Date.now() >= this.pairingState.expiresAt) this.setPairing({ state: 'conectando' });
+    return { ...this.pairingState };
+  }
+  onPairingState(handler: Handler<AdapterPairingState>): () => void {
+    this.pairingObservers.add(handler); handler(this.pairingSnapshot);
+    return () => { this.pairingObservers.delete(handler); };
+  }
+  private setPairing(state: AdapterPairingState): void {
+    if (this.qrTimer) clearTimeout(this.qrTimer);
+    this.qrTimer = undefined; this.pairingState = state;
+    if (state.state === 'aguardando_qr') this.qrTimer = setTimeout(() => { this.setPairing({ state: 'conectando' }); }, Math.max(0, state.expiresAt - Date.now()));
+    this.emit(this.pairingObservers, { ...state });
+  }
+  private pairingActions = Promise.resolve();
+  private serializePairing(work: () => Promise<void>): Promise<void> {
+    const result = this.pairingActions.then(work);
+    this.pairingActions = result.catch(() => undefined);
+    return result;
+  }
+  startPairing(): Promise<void> {
+    return this.serializePairing(async () => {
+      if (this.state === 'open') return;
+      const resetCredentials = this.state === 'logged-out';
+      await this.disconnect();
+      if (resetCredentials) {
+        if (!this.factory.clearSession) throw new Error('Session reset unavailable');
+        await this.factory.clearSession(this.sessionDir);
+      }
+      await this.connect();
+    });
+  }
+  logoutSession(): Promise<void> { return this.serializePairing(() => this.performLogout()); }
+  private async performLogout(): Promise<void> {
+    if (!this.factory.clearSession) throw new Error('Session reset unavailable');
+    // Stop retries and observers before logout emits a close event.
+    this.stopped = true; this.setPairing({ state: 'sessao_encerrada' });
+    const socket = this.socket;
+    let failure: unknown;
+    try { await socket?.logout?.(); } catch (error) { failure = error; }
+    await this.disconnect();
+    await this.factory.clearSession(this.sessionDir);
+    this.setState('logged-out');
+    if (failure) this.log('Remote logout failed; local credentials removed');
+  }
+  async listWhatsAppGroups(): Promise<{ id: string; name: string }[]> {
+    if (this.state !== 'open') return [];
+    const socket = this.socket;
+    if (!socket?.listGroups) throw new Error('Group listing unavailable');
+    const groups = await socket.listGroups();
+    return this.state === 'open' && socket === this.socket ? groups : [];
+  }
   private connectedAt = 'Nunca conectado';
   get lastConnectedAt(): string { return this.connectedAt; }
   get responsesPaused(): boolean { return this.paused; }
@@ -63,7 +126,7 @@ export class BaileysAdapter implements ObservableWhatsAppAdapter {
     for (const handler of handlers) { try { handler(value); } catch { this.log('Observer failed'); } }
   }
   private log(text: string): void { try { this.options.log?.(maskLog(text)); } catch { /* Logging cannot interrupt lifecycle cleanup. */ } }
-  private setState(state: ConnectionState): void { if (state === 'open') this.connectedAt = new Date().toISOString(); this.state = state; this.log(`WhatsApp ${state}`); this.emit(this.states, state); }
+  private setState(state: ConnectionState): void { if (state === 'open') this.connectedAt = new Date().toISOString(); this.state = state; this.setPairing({ state: state === 'open' ? 'conectado' : state === 'logged-out' ? 'sessao_encerrada' : state === 'connecting' || state === 'reconnecting' ? 'conectando' : 'desconectado' }); this.log(`WhatsApp ${state}`); this.emit(this.states, state); }
   connect(): Promise<void> {
     if (this.opening) return this.opening;
     if (!this.stopped) return Promise.resolve();
@@ -81,8 +144,9 @@ export class BaileysAdapter implements ObservableWhatsAppAdapter {
         this.cleanup = [
           socket.on('connection', update => {
             if (generation !== this.generation || this.stopped) return;
+            if (update.qr && update.connection !== 'open') this.setPairing({ state: 'aguardando_qr', qr: update.qr, expiresAt: Date.now() + 20_000 });
             if (update.qr && this.options.pairing?.mode === 'qr') this.options.pairing.onQr(update.qr);
-            if (update.connection === 'open') { this.attempts = 0; this.setState('open'); this.pump(); }
+            if (update.connection === 'open') { this.attempts = 0; this.setState('open'); this.setPairing({ state: 'conectado', ...(update.botJid ? { botJid: update.botJid, botNumber: update.botJid.split('@')[0]!.split(':')[0]!.replace(/[^0-9]/g, '').slice(0, 20) } : {}), ...(update.botName ? { botName: update.botName.slice(0, 128) } : {}) }); this.pump(); }
             if (update.connection === 'close') void this.closed(update.statusCode);
           }),
           socket.on('messages', event => {
