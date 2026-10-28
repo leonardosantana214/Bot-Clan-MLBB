@@ -7,8 +7,11 @@ export class XpAntiflood {
   private readonly fingerprints = new Map<string, { day: string; texts: Set<string> }>();
   readonly policy: Readonly<XpPolicy>;
   constructor(private readonly members: MemberRepository, private readonly ledger: XpLedger, private readonly clock: Clock, policy: XpPolicy = defaultXpPolicy) {
-    if (![policy.minIntervalMs, policy.dailyCap, policy.award].every(Number.isSafeInteger) || policy.minIntervalMs < 0 || policy.dailyCap < 0 || policy.award <= 0) throw new Error('Invalid XP policy');
+    XpAntiflood.validatePolicy(policy);
     this.policy = Object.freeze({ ...policy });
+  }
+  static validatePolicy(policy: XpPolicy): void {
+    if (![policy.minIntervalMs, policy.dailyCap, policy.award].every(Number.isSafeInteger) || policy.minIntervalMs < 0 || policy.dailyCap < 0 || policy.award <= 0) throw new Error('Invalid XP policy');
   }
   async process(message: IncomingMessage): Promise<void> {
     if (message.fromMe || !this.policy.enabled || message.text.trim().startsWith('/')) return;

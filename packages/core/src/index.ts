@@ -33,3 +33,8 @@ export function createBot(deps: BotDependencies): Bot {
 export * from './application/seen-messages.js';
 
 export * from './application/ranking.js';
+
+export * from './application/levels.js';
+export * from './application/persona.js';
+export * from './application/display-name.js';
+export * from './application/configuration.js';
