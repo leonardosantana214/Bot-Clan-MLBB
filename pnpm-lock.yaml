@@ -178,6 +178,15 @@ importers:
 
   packages/whatsapp-baileys:
     dependencies:
+      '@aerobot/community':
+        specifier: workspace:*
+        version: link:../community
+      '@aerobot/maintenance':
+        specifier: workspace:*
+        version: link:../maintenance
+      '@aerobot/star-member':
+        specifier: workspace:*
+        version: link:../star-member
       '@aerobot/core':
         specifier: workspace:*
         version: link:../core
