@@ -432,6 +432,11 @@ export interface HeroCounters extends Omit<RawHeroCountersRecord, 'sub_hero' | '
   id: string;
   heroId: number;
   name: string;
+  // Declared explicitly: Omit<> over a passthrough (index-signature) type drops the known keys.
+  main_heroid: number;
+  main_hero_win_rate: number;
+  main_hero_ban_rate: number;
+  main_hero_appearance_rate: number;
   sub_hero: ResolvedCounterSubHero[];
   counters: ResolvedCounterSubHero[];
   sub_hero_last?: ResolvedCounterSubHero[] | undefined;
