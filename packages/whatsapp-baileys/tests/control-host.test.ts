@@ -22,7 +22,7 @@ it('liga SQLite, ranking, pausa e exportação ao HTTP real sem WhatsApp', async
     expect(await client.setResponsesPaused(true)).toMatchObject({ responsesPaused: true });
     expect(adapter.responsesPaused).toBe(true);
     expect(await client.setResponsesPaused(false)).toMatchObject({ responsesPaused: false });
-    expect(await client.getRanking('all_time')).toEqual([{ rank: 1, memberId: 'alice', nickname: '=Fictícia', xp: 500, level: 2, messagesSent: 1 }]);
+    expect(await client.getRanking('all_time')).toEqual([{ rank: 1, memberId: 'alice', nickname: '=Fictícia', xp: 500, level: 1, messagesSent: 1 }]);
     const receipt = await client.requestExport('clan_members');
     expect(receipt.rowCount).toBe(1);
     expect(receipt.previewCsv).toContain("'=Fictícia");

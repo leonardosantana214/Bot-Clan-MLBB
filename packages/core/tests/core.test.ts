@@ -58,7 +58,7 @@ describe('SIMPLE core', () => {
     expect(await ledger.list('m')).toEqual([]);
   });
   it('calculates deterministic levels at exact boundaries with configurable formula', () => {
-    expect([0, 99, 100, 399, 400, 900, -10].map(x => calculateLevel(x))).toEqual([0, 0, 1, 1, 2, 3, 0]);
+    expect([0, 199, 200, 1131, 1132, 3118, -10].map(x => calculateLevel(x))).toEqual([0, 0, 1, 1, 2, 3, 0]);
     expect(calculateLevel(300, { baseXp: 50, exponent: 1 })).toBe(6);
     expect(() => calculateLevel(10, { baseXp: 0, exponent: 2 })).toThrow();
   });

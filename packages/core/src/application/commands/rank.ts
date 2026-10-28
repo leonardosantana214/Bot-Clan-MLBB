@@ -1,3 +1,4 @@
+import { displayName } from '../display-name.js';
 import { z } from 'zod';
 import type { CommandContext, CommandDefinition } from '../command-registry.js';
 import { rankByPeriod, rankPeriodBounds, type RankEntry, type RankPeriod } from '../ranking.js';
@@ -7,7 +8,7 @@ export async function rankResponse({ members, ledger, clock, message }: CommandC
   const { start, end } = rankPeriodBounds(period, clock.now());
   const entries = await rankByPeriod(members, ledger, start, end);
   if (!entries.length) return 'Ranking sem membros registrados.';
-  const format = (entry: RankEntry) => `${entry.position}º · ${entry.member.name} · ${entry.xp.toLocaleString('pt-BR')} XP`;
+  const format = (entry: RankEntry) => `${entry.position}º · ${displayName(entry.member.name)} · ${entry.xp.toLocaleString('pt-BR')} XP`;
   const own = await members.findByIdentity(message.senderId);
   const ownEntry = entries.find(entry => entry.member.id === own?.id);
   const lines = [`Ranking · ${period === 'mes' ? 'mês' : period}`, ...entries.slice(0, 10).map(format)];

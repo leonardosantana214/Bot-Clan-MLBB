@@ -2,6 +2,7 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { startControlServer, readGroupRoles } from './control-host.js';
+import { progressionConfiguration } from '@aerobot/core';
 import { composeHost } from './compose.js';
 import { ArenaProvider } from '@aerobot/mlbb-provider';
 import { createMlbbCommands } from '@aerobot/mlbb-commands';
@@ -25,6 +26,7 @@ const adminGroupId = process.env.AEROBOT_ADMIN_GROUP ?? roles.adminGroupId;
 const mlbbEnabled = process.env.AEROBOT_DISABLE_MLBB !== '1';
 const mlbbCommands = mlbbEnabled ? createMlbbCommands(new ArenaProvider({ cachePath: join(adapter.sessionDir, 'mlbb-cache.json') })) : [];
 const host = composeHost({
+  ...progressionConfiguration(process.env),
   adapter, sessionDir: adapter.sessionDir, extraCommands: mlbbCommands,
   ...(groupId ? { groupId } : {}),
   ...(adminGroupId ? { adminGroupId } : {}),

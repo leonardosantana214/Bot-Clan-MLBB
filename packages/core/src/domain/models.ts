@@ -21,7 +21,8 @@ export interface XpTransaction {
   readonly reason: string;
 }
 export interface LevelFormula { readonly baseXp: number; readonly exponent: number }
-export const defaultLevelFormula: LevelFormula = { baseXp: 100, exponent: 2 };
+// Proposta / pendente de aprovação. See packages/core/README.md for thresholds and migration implications.
+export const defaultLevelFormula: LevelFormula = { baseXp: 200, exponent: 2.5 };
 // Level zero starts at zero; level n requires ceil(baseXp * n ** exponent).
 export function calculateLevel(totalXp: number, formula: LevelFormula = defaultLevelFormula): number {
   if (!Number.isSafeInteger(totalXp) || !Number.isFinite(formula.baseXp) || formula.baseXp < 1 || !Number.isFinite(formula.exponent) || formula.exponent < 1) throw new Error('Invalid XP or level formula');

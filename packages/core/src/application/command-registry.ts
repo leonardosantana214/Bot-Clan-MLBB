@@ -29,13 +29,14 @@ export class CommandRegistry {
     const [token, ...args] = message.text.trim().split(/\s+/u);
     const name = token?.slice(1).toLowerCase();
     const command = name ? this.commands.get(name) : undefined;
-    if (!token?.startsWith('/') || !command) return;
+    if (!token?.startsWith('/')) return;
     const route = await this.routes.find(message.groupId);
-    if (!route?.allowedCommands.includes(command.name)) return;
+    if (!route || (command && !route.allowedCommands.includes(command.name))) return;
     const now = clock.now();
     const previous = this.lastCommand.get(message.senderId);
     if (previous !== undefined && now - previous < this.intervalMs) return;
     this.lastCommand.set(message.senderId, now);
+    if (!command) { await this.adapter.sendMessage(message.groupId, 'Comando desconhecido. Use /ajuda.'); return; }
     const parsed = command.input.safeParse(args);
     const response = parsed.success ? await command.handle({ ...context, commands: this.list().filter(c => route.allowedCommands.includes(c.name)) }, parsed.data) : 'Argumentos inválidos. Use /ajuda.';
     await this.adapter.sendMessage(message.groupId, response);
