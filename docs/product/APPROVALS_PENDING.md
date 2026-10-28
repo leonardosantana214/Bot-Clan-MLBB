@@ -17,3 +17,18 @@ Nenhum agente pode decidir estes itens. Status inicial de todos: **Proposta / Pe
 | A11 | Licença do repositório e visibilidade (público/privado) | Privado até decisão | Publicação |
 | A12 | Fórmula de níveis e limites de XP | Valores iniciais configuráveis | Gamificação |
 | A13 | Aparelho reserva dedicado ao Host | Confirmar modelo/Android | Host |
+
+## Atualização — decisões da liderança (2026-10-28)
+| # | Resultado |
+|---|---|
+| A1/A2 | Pesos mantidos como proposta; ≥ 50/100 = elegível ao sorteio |
+| A3 | Sorteio realmente aleatório (seed registrada), sem mérito automático |
+| A4 | Desempate decidido pelos ADMs na hora; ordem proposta serve de sugestão |
+| A5 | **Metas de atividade:** valores ainda por definir (dependem de fonte de dados — pontos do clã foram removidos do escopo) |
+| A6 | Sorteios e prêmios são assunto da administração; sistema só registra |
+| **Novo** | Quem venceu um mês não pode vencer o mês seguinte (a confirmar) |
+| A9 | Número dedicado: liderança será avisada |
+| A10 | Login simples no Controller; sem papéis por enquanto (detalhes pendentes) |
+| A11 | Repositório público aprovado |
+| A12 | XP vem do MLBB — **inviável por API** (ver MLBB_PROVIDER_RESEARCH); XP por mensagem vem desativado e é configurável |
+| A13 | Aparelho antigo e desconhecido; compatibilidade Android ampla; modelo a confirmar |
