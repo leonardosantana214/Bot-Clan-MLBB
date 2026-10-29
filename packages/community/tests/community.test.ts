@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, it } from 'vitest';
 import { FakeWhatsAppAdapter, InMemoryAuditLog, InMemoryMemberRepository, type CommandContext, type CommandDefinition, type IncomingMessage, type Member, type WhatsAppAdapter } from '@aerobot/core';
@@ -57,6 +60,31 @@ async function run(env: Awaited<ReturnType<typeof setup>>, commands: readonly Co
 }
 
 describe.each(stores)('community (%s store)', (_name, makeStore) => {
+  it('recovers durable aggregates after service restart and deduplicates replay', async () => {
+    const env = await setup(makeStore);
+    const event = { id: 'durable-event', type: 'membership' as const, at: 1, line: 'aviso sintético' };
+    await env.community.notifications.notify(event);
+    const restarted = createCommunity({ config: { adminGroupId: ADMIN, chatGroupIds: [CHAT1, CHAT2] }, store: env.store, adapter: env.adapter, members: env.members, clock: env.clock });
+    await restarted.notifications.notify(event);
+    env.clock.advance(10 * MIN);
+    await restarted.tick();
+    expect(env.adapter.sent).toHaveLength(1);
+    expect(env.adapter.sent[0]!.text.match(/aviso sintético/gu)).toHaveLength(1);
+    expect(await env.store.listNotifications('accepted')).toHaveLength(1);
+    expect(await env.store.listNotifications('confirmed')).toHaveLength(0);
+  });
+
+  it('opens review for a CHAT-only member, while presence in ADM blocks review', async () => {
+    const env = await setup(makeStore);
+    await env.community.membership.observePresence(CHAT1, [ANA, BETO]);
+    await env.community.membership.observePresence(ADMIN, [BETO]);
+    expect((await env.community.membership.onMembershipChange({ groupId: CHAT1, participantId: ANA, action: 'leave' })).reviewCaseOpened).toBe(true);
+    expect((await env.community.membership.onMembershipChange({ groupId: CHAT1, participantId: BETO, action: 'leave' })).reviewCaseOpened).toBe(false);
+    expect((await env.community.membership.onMembershipChange({ groupId: ADMIN, participantId: BETO, action: 'leave' })).reviewCaseOpened).toBe(true);
+    expect((await env.members.findByIdentity(ANA))?.status).toBe('active');
+    expect((await env.members.findByIdentity(BETO))?.status).toBe('active');
+  });
+
   describe('membership', () => {
     it('records append-only events with origin and time, keeps membership state', async () => {
       const env = await setup(makeStore);
@@ -90,6 +118,8 @@ describe.each(stores)('community (%s store)', (_name, makeStore) => {
     it('opens only a review case when ALL visible groups show a leave, without changing status', async () => {
       const env = await setup(makeStore);
       const m = env.community.membership;
+      await m.observePresence(CHAT2, [ANA]);
+      await m.observePresence(ADMIN, [ANA]);
       expect((await m.onMembershipChange({ groupId: CHAT1, participantId: ANA, action: 'leave' })).reviewCaseOpened).toBe(false);
       expect((await m.onMembershipChange({ groupId: CHAT2, participantId: ANA, action: 'leave' })).reviewCaseOpened).toBe(false);
       expect((await m.onMembershipChange({ groupId: ADMIN, participantId: ANA, action: 'leave' })).reviewCaseOpened).toBe(true);
@@ -121,6 +151,7 @@ describe.each(stores)('community (%s store)', (_name, makeStore) => {
     it('aggregates events of the same type in one admin message, only to the admin group', async () => {
       const env = await setup(makeStore);
       await env.community.membership.onMembershipChange({ groupId: CHAT1, participantId: ANA, action: 'join' });
+      await env.community.membership.observePresence(CHAT1, [BETO]);
       await env.community.membership.onMembershipChange({ groupId: CHAT2, participantId: BETO, action: 'leave' });
       await env.community.tick();
       expect(env.adapter.sent).toHaveLength(0); // window not elapsed
@@ -131,7 +162,7 @@ describe.each(stores)('community (%s store)', (_name, makeStore) => {
       expect(env.adapter.sent[0]!.text).toContain('Entradas/saídas nos últimos 10 min:');
       expect(env.adapter.sent[0]!.text).toContain('entrou: Ana em Chat 1');
       expect(env.adapter.sent[0]!.text).toContain('saiu: Beto em Chat 2');
-      expect((await env.store.listNotifications('confirmed'))).toHaveLength(1);
+      expect((await env.store.listNotifications('accepted'))).toHaveLength(1);
     });
 
     it('is idempotent per (event, destination)', async () => {
@@ -182,14 +213,14 @@ describe.each(stores)('community (%s store)', (_name, makeStore) => {
       env.clock.advance(10 * MIN); await env.community.tick();
       env.clock.advance(1000); await env.community.tick();
       expect(env.adapter.sent).toHaveLength(1);
-      expect(await env.store.listNotifications('confirmed')).toHaveLength(1);
+      expect(await env.store.listNotifications('accepted')).toHaveLength(1);
     });
 
     it('keeps sent state until confirm() when autoConfirm is off', async () => {
       const env = await setup(makeStore, { notifications: { autoConfirm: false } });
       await env.community.notifications.notify({ id: 'e1', type: 'membership', at: 1, line: 'a' });
       env.clock.advance(10 * MIN); await env.community.tick();
-      const sent = await env.store.listNotifications('sent');
+      const sent = await env.store.listNotifications('accepted');
       expect(sent).toHaveLength(1);
       await env.community.notifications.confirm(sent[0]!.id);
       expect(await env.store.listNotifications('confirmed')).toHaveLength(1);
@@ -454,3 +485,42 @@ describe('attach', () => {
 });
 
 void FakeWhatsAppAdapter;
+
+
+it('rolls back the claim if persisting the aggregate fails', async () => {
+  const db = new DatabaseSync(':memory:');
+  const store = new SqliteCommunityStore(db);
+  try {
+    const env = await setup(() => store);
+    db.exec("CREATE TRIGGER fail_outbox BEFORE INSERT ON comm_notification BEGIN SELECT RAISE(ABORT, 'synthetic failure'); END");
+    const event = { id: 'atomic-event', type: 'membership' as const, at: 1, line: 'aviso' };
+    await expect(env.community.notifications.notify(event)).rejects.toThrow('synthetic failure');
+    expect(db.prepare('SELECT COUNT(*) AS n FROM comm_notification_claim').get()!.n).toBe(0);
+    db.exec('DROP TRIGGER fail_outbox');
+    await env.community.notifications.notify(event);
+    env.clock.advance(10 * MIN);
+    await env.community.tick();
+    expect(env.adapter.sent).toHaveLength(1);
+  } finally { db.close(); }
+});
+
+
+it('recovers the aggregate after closing and reopening SQLite on disk', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'aero-outbox-'));
+  const file = join(directory, 'community.sqlite');
+  let store = new SqliteCommunityStore(file);
+  try {
+    const env = await setup(() => store);
+    const event = { id: 'disk-event', type: 'membership' as const, at: 1, line: 'aviso persistido' };
+    await env.community.notifications.notify(event);
+    store.close();
+    store = new SqliteCommunityStore(file);
+    const restarted = createCommunity({ config: { adminGroupId: ADMIN, chatGroupIds: [CHAT1] }, store, adapter: env.adapter, members: env.members, clock: env.clock });
+    await restarted.notifications.notify(event);
+    env.clock.advance(10 * MIN);
+    await restarted.tick();
+    expect(env.adapter.sent).toHaveLength(1);
+    expect(env.adapter.sent[0]!.text).toContain('aviso persistido');
+    expect(await store.listNotifications('accepted')).toHaveLength(1);
+  } finally { store.close(); rmSync(directory, { recursive: true, force: true }); }
+});

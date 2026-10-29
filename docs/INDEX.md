@@ -25,6 +25,7 @@ Legenda de status: **Confirmado** (decisão da liderança) · **Proposta / Pende
 - [Privacidade e retenção](security/PRIVACY_AND_RETENTION.md)
 
 ## Mobile
+- [Host Android via Termux — Não verificado](mobile/HOST_ANDROID_TERMUX.md)
 - [Viabilidade do Host Android](mobile/ANDROID_HOST_FEASIBILITY.md)
 
 ## Roadmap
@@ -34,6 +35,7 @@ Legenda de status: **Confirmado** (decisão da liderança) · **Proposta / Pende
 - [Reconhecimento do ambiente](roadmap/ENVIRONMENT_AUDIT.md)
 
 ## Decisões (ADRs)
+- [ADR-0007 Android primeiro](decisions/ADR-0007-android-first.md)
 - [ADR-0001 Monólito modular hexagonal](decisions/ADR-0001-modular-monolith.md)
 - [ADR-0002 Baileys apenas como experimento atrás de adaptador](decisions/ADR-0002-whatsapp-adapter.md)
 - [ADR-0003 Host: PoC antes de decidir runtime](decisions/ADR-0003-host-runtime.md)

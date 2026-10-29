@@ -38,7 +38,10 @@ let control: Awaited<ReturnType<typeof startControlServer>>;
 let stopping = false;
 async function shutdown() {
   if (stopping) return; stopping = true;
-  try { await control?.server.close(); } finally { try { await host.close(); } finally { await adapter.disconnect(); } }
+  const deadline = setTimeout(() => { process.stderr.write('Shutdown budget exhausted\n'); process.exit(1); }, 10_000);
+  try { await control?.server.close(); } finally {
+    try { await host.close(); } finally { await adapter.disconnect(); clearTimeout(deadline); }
+  }
 }
 process.once('SIGINT', () => { void shutdown(); });
 process.once('SIGTERM', () => { void shutdown(); });

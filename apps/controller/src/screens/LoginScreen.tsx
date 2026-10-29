@@ -26,7 +26,7 @@ export function LoginScreen({
   onAuthenticated
 }: LoginScreenProps): React.JSX.Element {
   const [demo, setDemo] = useState(false);
-  const [address, setAddress] = useState(() => { try { return globalThis.localStorage?.getItem('aerobot-host') ?? 'http://127.0.0.1:8787'; } catch { return 'http://127.0.0.1:8787'; } });
+  const [address, setAddress] = useState(() => { if (Platform.OS !== 'web') return 'http://127.0.0.1:8787'; try { return globalThis.localStorage?.getItem('aerobot-host') ?? 'http://127.0.0.1:8787'; } catch { return 'http://127.0.0.1:8787'; } });
   const [password, setPassword] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -76,7 +76,7 @@ export function LoginScreen({
           <Switch trackColor={{false: 'rgba(201, 162, 75, 0.35)', true: colors.primary}} thumbColor={colors.textPrimary} value={demo} disabled={loading} onValueChange={value => { setDemo(value); setPassword(''); setError(null); }} accessibilityLabel="Modo demonstração" />
           {!demo ? <View style={styles.fieldGroup}>
             <Text style={styles.label}>Endereço do Host</Text>
-            <TextInput value={address} onChangeText={setAddress} editable={!loading} autoCapitalize="none" autoCorrect={false} placeholder="http://192.168.0.10:8787" placeholderTextColor={colors.textMuted} accessibilityLabel="Endereço do Host" style={styles.input} />
+            <TextInput value={address} onChangeText={setAddress} editable={!loading} autoCapitalize="none" autoCorrect={false} placeholder="http://127.0.0.1:8787" placeholderTextColor={colors.textMuted} accessibilityLabel="Endereço do Host" style={styles.input} />
           </View> : null}
           <View style={ styles.fieldGroup }>
             <Text style={ styles.label }>Senha de Administração</Text>
