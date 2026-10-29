@@ -66,7 +66,7 @@ export const typography = {
   families: { ui: 'Manrope_400Regular', medium: 'Manrope_500Medium', bold: 'Manrope_600SemiBold', display: 'CormorantGaramond_500Medium' },
   tracking: { label: 2, wordmark: 8 },
   sizes: {
-    nav: 9,
+    nav: 11,
     eyebrow: 10,
     bodyCompact: 13,
     section: 24,

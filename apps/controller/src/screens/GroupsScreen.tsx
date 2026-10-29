@@ -97,7 +97,7 @@ export function GroupsScreen({ api, refreshSignal }: GroupsScreenProps): React.J
   if (groups.length === 0) {
     return (
       <EmptyState
-        title="Nenhum grupo vinculado"
+        title="Nenhum grupo"
         description="Não há rotas de WhatsApp registradas para o clã neste momento."
         actionLabel="Atualizar Lista"
         onAction={ () => {

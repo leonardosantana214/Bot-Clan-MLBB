@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'qrcode';
 import { AeroMark } from '../components/AeroBrand';
-import { Button, Card, Badge, ConfirmModal } from '../components';
+import { Button, Card, Badge, ConfirmModal, EmptyState } from '../components';
 import type { ControllerApi, WhatsAppConnection, WhatsAppGroup } from '../services/api';
 import { borders, colors, spacing, typography } from '../theme';
 
@@ -68,7 +68,7 @@ export function ConnectionScreen({ api }: { api: ControllerApi }): React.JSX.Ele
       {expiresAt ? <Text style={styles.text}>Expiração aproximada: {new Date(expiresAt).toLocaleTimeString('pt-BR')}</Text> : null}
       {error ? <Text accessibilityRole="alert" style={styles.text}>{error}</Text> : null}
       <Button label="Gerar novo QR" disabled={busy} onPress={() => { void action(false); }} />
-      <Button label="Desconectar" variant="danger" disabled={busy} onPress={() => setConfirm(true)} />
+      <Button style={{ marginTop: spacing.lg }} label="Desconectar" variant="danger" disabled={busy} onPress={() => setConfirm(true)} />
     </Card>
     <ConfirmModal visible={confirm} title="Desconectar WhatsApp?" description="A sessão será encerrada e as credenciais locais serão apagadas. Será necessário parear novamente." confirmLabel="Desconectar" destructive onCancel={() => setConfirm(false)} onConfirm={() => { setConfirm(false); void action(true); }} />
   </ScrollView>;
@@ -94,9 +94,9 @@ export function WhatsAppGroupsScreen({ api, demo }: { api: ControllerApi; demo: 
   return <ScrollView contentContainerStyle={styles.container}>
     <Button label="Módulos e atividade por grupo" onPress={()=>setModules(true)}/>
     <Text style={styles.heading}>Grupos</Text>{demo ? <Badge label="DEMONSTRAÇÃO" tone="info" /> : null}<Text style={styles.text}>CHAT e ADM devem ser distintos. Comandos administrativos só funcionam na rota ADM.</Text>
-    {!groups.length ? <Text style={styles.text}>Nenhum grupo disponível. Conecte o bot e entre nos grupos de teste.</Text> : null}
+    {!groups.length ? <EmptyState title="Nenhum grupo" description="Conecte o bot e adicione-o aos grupos de teste para definir os papéis." /> : null}
     {groups.map(group => <Card key={group.id} title={group.name}><Text style={styles.text}>{group.id}</Text><View>
-      <Button label="Definir como CHAT" disabled={busy} onPress={() => { void assign(group.id, 'chatGroupId'); }} />
+      <Button variant="outline" label="Definir como CHAT" disabled={busy} onPress={() => { void assign(group.id, 'chatGroupId'); }} />
       <Button label="Definir como ADM" variant="outline" disabled={busy} onPress={() => { void assign(group.id, 'adminGroupId'); }} />
     </View></Card>)}
     {message ? <Text accessibilityRole="alert" style={styles.text}>{message}</Text> : null}

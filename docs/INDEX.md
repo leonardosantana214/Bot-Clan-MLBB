@@ -20,6 +20,7 @@ Legenda de status: **Confirmado** (decisão da liderança) · **Proposta / Pende
 - [Pesquisa de provedores MLBB](api/MLBB_PROVIDER_RESEARCH.md)
 
 ## Segurança
+- [Riscos de dependências](security/DEPENDENCY_RISKS.md)
 - [Modelo de ameaças](security/THREAT_MODEL.md)
 - [Privacidade e retenção](security/PRIVACY_AND_RETENTION.md)
 

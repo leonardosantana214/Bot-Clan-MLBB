@@ -11,5 +11,5 @@ export function AeroPressable({ style, onFocus, onBlur, onHoverIn, onHoverOut, .
     onBlur={e => { setFocused(false); onBlur?.(e); }}
     onHoverIn={e => { setHovered(true); onHoverIn?.(e); }}
     onHoverOut={e => { setHovered(false); onHoverOut?.(e); }}
-    style={state => [{ borderWidth: borders.hairline, borderColor: colors.transparent, minHeight: 44 }, typeof style === 'function' ? style(state) : style, hovered && { backgroundColor: colors.surfaceHighlight }, focused && { borderColor: colors.gold }, state.pressed && { backgroundColor: colors.primarySoft, borderColor: colors.gold }, props.disabled && { opacity: 0.5 }]} />;
+    style={state => [{ borderWidth: borders.hairline, borderColor: colors.transparent, minHeight: 44, minWidth: 44, justifyContent: 'center' }, typeof style === 'function' ? style(state) : style, hovered && { backgroundColor: colors.surfaceHighlight }, focused && { borderColor: colors.gold }, state.pressed && { backgroundColor: colors.primarySoft, borderColor: colors.gold }, props.disabled && { opacity: 0.5 }]} />;
 }

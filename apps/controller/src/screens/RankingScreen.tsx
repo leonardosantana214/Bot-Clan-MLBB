@@ -49,26 +49,13 @@ export function RankingScreen({ api, refreshSignal }: RankingScreenProps): React
     );
   }
 
-  if (entries.length === 0) {
-    return (
-      <EmptyState
-        title="Ranking de XP vazio"
-        description="Ainda não há pontuação de experiência acumulada pelos membros nesta temporada."
-        actionLabel="Recarregar Ranking"
-        onAction={ () => {
-          void loadRanking();
-        } }
-      />
-    );
-  }
-
   return (
     <ScrollView
       contentContainerStyle={ styles.scrollContent }
       showsVerticalScrollIndicator={ false }
     >
-      <View style={{flexDirection:'row',flexWrap:'wrap',gap:spacing.xs}}>{([['daily','Hoje'],['weekly','Semana'],['monthly','Mês'],['all_time','Geral']] as const).map(([key,label])=><Button key={key} label={label} variant={period===key?'primary':'outline'} onPress={()=>setPeriod(key)}/>)}</View>
-      <Card
+      <View style={{flexDirection:'row',flexWrap:'wrap',gap:spacing.xs}}>{([['daily','Hoje'],['weekly','Semana'],['monthly','Mês'],['all_time','Geral']] as const).map(([key,label])=><Button key={key} label={label} variant={period===key?'secondary':'ghost'} onPress={()=>setPeriod(key)}/>)}</View>
+      {entries.length === 0 ? <EmptyState title="Ranking vazio" description="Selecione outro período ou aguarde novas mensagens com XP." actionLabel="Atualizar" onAction={()=>void loadRanking()}/> : <Card
         accent
         title="Ranking"
         subtitle="Temporada S34 · Participação e experiência"
@@ -128,7 +115,7 @@ export function RankingScreen({ api, refreshSignal }: RankingScreenProps): React
             );
           }) }
         </View>
-      </Card>
+      </Card>}
     </ScrollView>
   );
 }
