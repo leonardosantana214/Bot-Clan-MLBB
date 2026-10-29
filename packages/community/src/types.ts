@@ -24,7 +24,7 @@ export interface Warning {
   readonly authorId: string; readonly authorName: string; readonly at: number;
 }
 export type AdminEventType = 'membership' | 'pending-registration' | 'leave-review' | 'moderation';
-export type NotificationState = 'registered' | 'queued' | 'sent' | 'confirmed' | 'failed';
+export type NotificationState = 'registered' | 'queued' | 'accepted' | 'confirmed' | 'failed';
 export interface NotificationRecord {
   readonly id: string; readonly destination: string; readonly type: AdminEventType; readonly text: string;
   readonly state: NotificationState; readonly attempts: number;

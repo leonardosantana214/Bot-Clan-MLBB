@@ -49,6 +49,13 @@ export class InMemoryCommunityStore implements CommunityStore {
     if (this.claims.has(key)) return false;
     this.claims.add(key); return true;
   }
+  async claimAndSaveNotification(eventId: string, record: NotificationRecord): Promise<boolean> {
+    const key = `${eventId}\u0000${record.destination}`;
+    if (this.claims.has(key)) return false;
+    this.notifications.set(record.id, freeze(record));
+    this.claims.add(key);
+    return true;
+  }
   async saveNotification(record: NotificationRecord): Promise<boolean> {
     if (this.notifications.has(record.id)) return false;
     this.notifications.set(record.id, freeze(record)); return true;
@@ -56,7 +63,7 @@ export class InMemoryCommunityStore implements CommunityStore {
   async updateNotification(id: string, patch: NotificationPatch): Promise<void> {
     const current = this.notifications.get(id);
     if (!current) return;
-    this.notifications.set(id, freeze({ ...current, state: patch.state, attempts: patch.attempts ?? current.attempts, updatedAt: patch.updatedAt, nextAttemptAt: patch.nextAttemptAt ?? current.nextAttemptAt, lastError: patch.lastError === undefined ? current.lastError : patch.lastError }));
+    this.notifications.set(id, freeze({ ...current, text: patch.text ?? current.text, state: patch.state, attempts: patch.attempts ?? current.attempts, updatedAt: patch.updatedAt, nextAttemptAt: patch.nextAttemptAt ?? current.nextAttemptAt, lastError: patch.lastError === undefined ? current.lastError : patch.lastError }));
   }
   async listNotifications(state?: NotificationState): Promise<readonly NotificationRecord[]> {
     return [...this.notifications.values()].filter(n => state === undefined || n.state === state);

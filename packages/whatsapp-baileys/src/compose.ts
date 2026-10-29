@@ -1,3 +1,4 @@
+import { InboundQueue, withTimeout } from './limits.js';
 import { XpSettingsSchema } from '@aerobot/control-protocol';
 import { ControlRuntime } from './control-runtime.js';
 import { join } from 'node:path';
@@ -9,6 +10,9 @@ import { createAdminCommands } from '@aerobot/maintenance';
 
 export interface HostOptions {
   adapter: WhatsAppAdapter;
+  maxInboundQueue?: number;
+  sendTimeoutMs?: number;
+  shutdownBudgetMs?: number;
   xpPolicy?: XpPolicy;
   levelFormula?: LevelFormula;
   persona?: PersonaStyle;
@@ -24,7 +28,7 @@ export interface HostOptions {
 
 export function composeHost(options: HostOptions) {
   const { groupId, adminGroupId } = options;
-  const adapter = personaAdapter(options.adapter, new Persona(options.persona ?? 'neutro'));
+  const adapter = personaAdapter({ sendMessage: (group, text) => withTimeout(options.adapter.sendMessage(group, text), options.sendTimeoutMs ?? 30_000) }, new Persona(options.persona ?? 'neutro'));
   const formula = options.levelFormula ?? defaultLevelFormula;
   if (adminGroupId && adminGroupId === groupId) throw new Error('ADM and CHAT groups must be distinct');
   const log = options.log ?? (message => { process.stderr.write(`${message}\n`); });
@@ -99,10 +103,10 @@ export function composeHost(options: HostOptions) {
     } };
     const bot = createBot({ ...storage, levelFormula: formula, xpPolicy, ledger: controlledLedger, adapter: controlledAdapter, clock, routes: { find: async id => routes.find(r => r.platformGroupId === id) },
       extraCommands: [...(options.extraCommands ?? []), ...memberCommands, ...adminCommands] });
-    let pending = Promise.resolve();
+    const queue = new InboundQueue(options.maxInboundQueue ?? 200, () => { log('Host processing failed'); });
     let stopped = false;
     const enqueue = (work: () => Promise<void>) => {
-      if (!stopped) pending = pending.then(work).catch(() => { log('Host processing failed'); });
+      if (!stopped) queue.enqueue(work);
     };
     const receive = async (message: IncomingMessage) => {
       if (stopped || message.fromMe) return;
@@ -127,13 +131,18 @@ export function composeHost(options: HostOptions) {
     const offMembership = community ? observable.onMembershipChange?.call(options.adapter, event => { enqueue(async () => { await community.membership.onMembershipChange(event); }); }) : undefined;
     const timer = community ? setInterval(() => { enqueue(() => community.tick()); }, 15_000) : undefined;
     let closing: Promise<void> | undefined;
-    return { storage, levelEvents, levelFormula: formula, receive, async idle() { await pending; }, close(): Promise<void> {
+    return { storage, levelEvents, levelFormula: formula, receive, get droppedInboundCount() { return queue.dropped; }, async idle() { await queue.idle(); }, close(): Promise<void> {
       return closing ??= (async () => {
         stopped = true;
         if (timer) clearInterval(timer);
         offReceipt?.(); offMessage?.(); offMembership?.();
-        await pending;
-        controlRuntime.close(); communityStore?.close(); starStore?.close(); levelEvents.close(); storage.close();
+        const closeStores = () => { controlRuntime.close(); communityStore?.close(); starStore?.close(); levelEvents.close(); storage.close(); };
+        if (await queue.close(options.shutdownBudgetMs ?? 5000)) closeStores();
+        else {
+          log('Shutdown budget exhausted; queued input discarded');
+          // Never close databases underneath an active handler. Process shutdown has its own deadline.
+          void queue.idle().then(closeStores);
+        }
       })();
     } };
   } catch (error) {

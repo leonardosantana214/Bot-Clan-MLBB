@@ -114,16 +114,26 @@ export class SqliteCommunityStore implements CommunityStore {
   async claimNotificationEvent(eventId: string, destination: string): Promise<boolean> {
     return this.changed(this.db.prepare('INSERT OR IGNORE INTO comm_notification_claim (event_id, destination) VALUES (?,?)').run(eventId, destination));
   }
+  async claimAndSaveNotification(eventId: string, n: NotificationRecord): Promise<boolean> {
+    this.db.exec('BEGIN IMMEDIATE');
+    try {
+      const claimed = this.changed(this.db.prepare('INSERT OR IGNORE INTO comm_notification_claim (event_id, destination) VALUES (?,?)').run(eventId, n.destination));
+      if (claimed) this.db.prepare('INSERT INTO comm_notification (id, destination, type, text, state, attempts, created_at, updated_at, next_attempt_at, last_error) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET text = excluded.text, updated_at = excluded.updated_at')
+        .run(n.id, n.destination, n.type, n.text, n.state === 'accepted' ? 'sent' : n.state, n.attempts, n.createdAt, n.updatedAt, n.nextAttemptAt, n.lastError);
+      this.db.exec('COMMIT');
+      return claimed;
+    } catch (error) { this.db.exec('ROLLBACK'); throw error; }
+  }
   async saveNotification(n: NotificationRecord): Promise<boolean> {
     return this.changed(this.db.prepare('INSERT OR IGNORE INTO comm_notification (id, destination, type, text, state, attempts, created_at, updated_at, next_attempt_at, last_error) VALUES (?,?,?,?,?,?,?,?,?,?)')
-      .run(n.id, n.destination, n.type, n.text, n.state, n.attempts, n.createdAt, n.updatedAt, n.nextAttemptAt, n.lastError));
+      .run(n.id, n.destination, n.type, n.text, n.state === 'accepted' ? 'sent' : n.state, n.attempts, n.createdAt, n.updatedAt, n.nextAttemptAt, n.lastError));
   }
   async updateNotification(id: string, p: NotificationPatch): Promise<void> {
-    this.db.prepare('UPDATE comm_notification SET state = ?, attempts = COALESCE(?, attempts), updated_at = ?, next_attempt_at = COALESCE(?, next_attempt_at), last_error = CASE WHEN ? THEN ? ELSE last_error END WHERE id = ?')
-      .run(p.state, p.attempts ?? null, p.updatedAt, p.nextAttemptAt ?? null, p.lastError === undefined ? 0 : 1, p.lastError ?? null, id);
+    this.db.prepare('UPDATE comm_notification SET text = COALESCE(?, text), state = ?, attempts = COALESCE(?, attempts), updated_at = ?, next_attempt_at = COALESCE(?, next_attempt_at), last_error = CASE WHEN ? THEN ? ELSE last_error END WHERE id = ?')
+      .run(p.text ?? null, p.state === 'accepted' ? 'sent' : p.state, p.attempts ?? null, p.updatedAt, p.nextAttemptAt ?? null, p.lastError === undefined ? 0 : 1, p.lastError ?? null, id);
   }
   async listNotifications(state?: NotificationState): Promise<readonly NotificationRecord[]> {
-    return (this.db.prepare('SELECT * FROM comm_notification WHERE (? IS NULL OR state = ?) ORDER BY seq').all(state ?? null, state ?? null) as Row[])
-      .map(r => Object.freeze({ id: str(r.id), destination: str(r.destination), type: str(r.type) as AdminEventType, text: str(r.text), state: str(r.state) as NotificationState, attempts: num(r.attempts), createdAt: num(r.created_at), updatedAt: num(r.updated_at), nextAttemptAt: num(r.next_attempt_at), lastError: nstr(r.last_error) }));
+    return (this.db.prepare('SELECT * FROM comm_notification WHERE (? IS NULL OR state = ?) ORDER BY seq').all(state === 'accepted' ? 'sent' : state ?? null, state === 'accepted' ? 'sent' : state ?? null) as Row[])
+      .map(r => Object.freeze({ id: str(r.id), destination: str(r.destination), type: str(r.type) as AdminEventType, text: str(r.text), state: (r.state === 'sent' ? 'accepted' : str(r.state)) as NotificationState, attempts: num(r.attempts), createdAt: num(r.created_at), updatedAt: num(r.updated_at), nextAttemptAt: num(r.next_attempt_at), lastError: nstr(r.last_error) }));
   }
 }

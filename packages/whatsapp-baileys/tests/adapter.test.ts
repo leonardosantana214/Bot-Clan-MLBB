@@ -135,3 +135,35 @@ describe('fake socket adapter', () => {
     expect(socket.sendMessage).toHaveBeenCalledOnce(); expect(adapter.connectionState).toBe('disconnected');
   });
 });
+
+
+it('times out a hung socket send and bounds disconnect when close hangs', async () => {
+  const { adapter, sockets } = setup({ sendTimeoutMs: 100, shutdownBudgetMs: 50 });
+  await adapter.connect();
+  const socket = sockets[0]!;
+  socket.emit('connection', { connection: 'open' });
+  socket.sendMessage.mockImplementation(() => new Promise<void>(() => {}));
+  const assertion = expect(adapter.sendMessage('test@g.us', 'synthetic')).rejects.toThrow(/Reply failed|Operation timed out/);
+  await vi.advanceTimersByTimeAsync(100);
+  await assertion;
+  socket.close.mockImplementation(() => new Promise<void>(() => {}));
+  const closing = adapter.disconnect();
+  await vi.advanceTimersByTimeAsync(50);
+  await closing;
+  expect(adapter.connectionState).toBe('disconnected');
+});
+
+
+it('expires a rate-limited waiting message before it can be sent later', async () => {
+  const { adapter, sockets } = setup({ sendTimeoutMs: 100, minIntervalMs: 1000 });
+  await adapter.connect();
+  const socket = sockets[0]!;
+  socket.emit('connection', { connection: 'open' });
+  await adapter.sendMessage('test@g.us', 'first');
+  const assertion = expect(adapter.sendMessage('test@g.us', 'expired')).rejects.toThrow('Operation timed out');
+  await vi.advanceTimersByTimeAsync(100);
+  await assertion;
+  expect(adapter.pendingQueueCount).toBe(0);
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(socket.sendMessage).toHaveBeenCalledTimes(1);
+});

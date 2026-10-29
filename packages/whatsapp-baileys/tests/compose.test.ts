@@ -112,3 +112,32 @@ it('deduplica antes da moderação e permite reentrega após falha de handler', 
   await host.receive(command); await host.receive(command);
   expect(calls).toBe(2); expect(adapter.sent).toEqual([{ groupId: 'chat', text: 'Concluído.' }]);
 });
+
+
+it('bounds the actual Host queue and shutdown while a send never resolves', async () => {
+  vi.useFakeTimers();
+  const dir = await mkdtemp(join(tmpdir(), 'aero-bounded-host-'));
+  let host: ReturnType<typeof composeHost> | undefined;
+  try {
+    const adapter = new ObservableFake();
+    adapter.sendMessage = () => new Promise<void>(() => {});
+    host = composeHost({ adapter, sessionDir: dir, groupId: 'chat', maxInboundQueue: 2, sendTimeoutMs: 100, shutdownBudgetMs: 20, log: () => {} });
+    const dispatch = (id: string) => { for (const handler of adapter.messages) handler({ id, groupId: 'chat', senderId: 'synthetic-user', text: '/ping', fromMe: false }); };
+    dispatch('active');
+    // Let the active handler reach the adapter before applying pressure.
+    await vi.advanceTimersByTimeAsync(0);
+    for (const id of ['oldest', 'middle', 'newest']) dispatch(id);
+    expect(host.droppedInboundCount).toBe(1);
+    const closing = host.close();
+    await vi.advanceTimersByTimeAsync(20);
+    await closing;
+    expect(host.droppedInboundCount).toBe(3);
+    expect(adapter.messages.size).toBe(0);
+    await vi.advanceTimersByTimeAsync(100);
+    await host.idle();
+  } finally {
+    if (host) await host.close();
+    vi.useRealTimers();
+    await rm(dir, { recursive: true, force: true });
+  }
+});

@@ -16,7 +16,7 @@ export interface CommunityServiceDeps {
 
 /**
  * Tracks group membership. A single event never deletes a profile nor changes a member status.
- * "Possible community exit" requires leave evidence in EVERY visible group and only opens a
+ * "Possible community exit" requires leave evidence in every routed group with observed membership and only opens a
  * review case for ADMs (BR-03); status changes are always a human decision.
  */
 export class CommunityService {
@@ -55,16 +55,17 @@ export class CommunityService {
       const caseId = this.newId();
       reviewCaseOpened = await store.openReviewCase({
         id: caseId, participantId: change.participantId, memberId: member.id, status: 'open', openedAt: at,
-        resolvedAt: null, resolvedBy: null, reason: 'Saída observada em todos os grupos visíveis'
+        resolvedAt: null, resolvedBy: null, reason: 'Saída observada em todos os grupos com participação observada'
       });
-      if (reviewCaseOpened) await notifier.notify({ id: `case:${caseId}`, type: 'leave-review', at, line: `${who}: saída de todos os grupos visíveis; revisar (nenhum status foi alterado)` });
+      if (reviewCaseOpened) await notifier.notify({ id: `case:${caseId}`, type: 'leave-review', at, line: `${who}: saída de todos os grupos com participação observada; revisar (nenhum status foi alterado)` });
     }
     return { recorded: true, pendingRegistration, reviewCaseOpened };
   }
 
   private async leftEverywhere(participantId: string): Promise<boolean> {
     const presence = new Map((await this.deps.store.getPresence(participantId)).map(p => [p.groupId, p.state]));
-    return this.deps.config.visibleGroupIds.every(groupId => presence.get(groupId) === 'left');
+    const relevant = this.deps.config.visibleGroupIds.filter(groupId => presence.has(groupId));
+    return relevant.length > 0 && relevant.every(groupId => presence.get(groupId) === 'left');
   }
 
   private groupLabel(groupId: string): string {

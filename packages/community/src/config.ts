@@ -34,7 +34,7 @@ export const communityConfigSchema = z.object({
     maxLines: z.number().int().min(1).max(100).default(20),
     maxAttempts: z.number().int().min(1).max(10).default(3),
     retryBaseMs: ms.default(30_000),
-    /** sendMessage resolving is the only delivery signal the adapter gives; treat it as confirmation. */
+    /** Legacy option; resolving sendMessage means accepted by adapter only. */
     autoConfirm: z.boolean().default(true)
   }).default({}),
   welcome: z.record(z.string(), welcomeSchema).default({}),
@@ -55,5 +55,5 @@ export type CommunityConfig = z.output<typeof communityConfigSchema> & { visible
 
 export function parseCommunityConfig(input: CommunityConfigInput): CommunityConfig {
   const cfg = communityConfigSchema.parse(input);
-  return { ...cfg, visibleGroupIds: [...new Set(cfg.visibleGroupIds ?? [...cfg.chatGroupIds, cfg.adminGroupId])] };
+  return { ...cfg, visibleGroupIds: [...new Set([...(cfg.visibleGroupIds ?? []), ...cfg.chatGroupIds, cfg.adminGroupId])] };
 }

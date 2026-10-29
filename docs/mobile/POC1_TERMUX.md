@@ -1,6 +1,6 @@
 # PoC-1 — Host no Android via Termux (guia de medição)
 
-Status: **Proposta / Pendente de execução**. Nada aqui foi medido ainda: não há aparelho conectado ao ambiente de desenvolvimento. O objetivo é decidir com números se o Host roda de forma estável no celular reserva.
+Status de execução: **Não verificado**. Decisão de plataforma confirmada no [ADR-0007](../decisions/ADR-0007-android-first.md). Siga o [guia passo a passo atualizado](HOST_ANDROID_TERMUX.md) para instalar, proteger a senha e parear pelo Controller; os passos abaixo são o roteiro de medição. Nada aqui foi medido ainda: não há aparelho conectado ao ambiente de desenvolvimento. O objetivo é decidir com números se o Host roda de forma estável no celular reserva.
 
 ## Objetivo
 Responder, com dados reais: o bot (Node + Baileys + SQLite) consegue ficar ligado por dias no celular antigo sem ser morto pelo Android, e quanto consome?
@@ -9,15 +9,11 @@ Responder, com dados reais: o bot (Node + Baileys + SQLite) consegue ficar ligad
 - Celular reserva com Android (modelo/versão: anotar), carregador e Wi-Fi estável.
 - Termux instalado pelo **F-Droid** (a versão da Play Store está desatualizada).
 - Chip/número **de TESTE** para o WhatsApp (nunca o número principal do clã).
-- Pareamento feito em terminal privado (código/QR não vai para chat nem log).
+- Pareamento pelo Controller em tela privada (QR não vai para chat nem log).
 
-## Passos
-1. No Termux: `pkg update && pkg install nodejs git`. Anotar `node -v` (o projeto usa `node:sqlite`, que exige Node 22+; se o Termux trouxer versão menor, registrar — isso é um achado, não um erro).
-2. `termux-wake-lock` (ou notificação "Acquire wakelock") para evitar suspensão da CPU.
-3. Configurações do Android: desativar otimização de bateria para o Termux; permitir execução em segundo plano; fixar o app nos recentes se o fabricante matar processos.
-4. Clonar o repositório, `corepack pnpm install`, `corepack pnpm build`.
-5. Definir `AEROBOT_SESSION_DIR` (pasta fora do repositório), `AEROBOT_TEST_GROUP` (grupo de teste) e rodar `node packages/whatsapp-baileys/dist/run.js`.
-6. Parear com o número de teste e deixar rodando.
+## Passos — Não verificado
+
+Siga o [guia atualizado do Host Android](HOST_ANDROID_TERMUX.md), que inclui instalação com lockfile congelado, senha externa ao repo, início com limite de reinícios e pareamento pelo Controller. Depois registre as medições abaixo. Nenhum passo foi executado em aparelho real.
 
 ## O que medir (planilha simples, uma linha por leitura)
 | Métrica | Como | Frequência |

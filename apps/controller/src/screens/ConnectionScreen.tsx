@@ -27,7 +27,7 @@ export function ConnectionScreen({ api }: { api: ControllerApi }): React.JSX.Ele
         if (state.state === 'conectado') return;
         if (Date.now() < deadline) timer = setTimeout(() => { void poll(); }, 2500);
         else { setConnection(null); setError('Tempo de pareamento esgotado. Gere um novo QR.'); }
-      } catch (e) { if (active) { setImage(null); setConnection(null); setError(e instanceof Error ? e.message : 'Falha ao consultar conexão.'); } }
+      } catch { if (active) { setImage(null); setConnection(null); setError('Host inacessível: ele pode não estar rodando ou o endereço está errado.'); } }
     };
     void poll();
     return () => { active = false; if (timer) clearTimeout(timer); };
@@ -51,7 +51,7 @@ export function ConnectionScreen({ api }: { api: ControllerApi }): React.JSX.Ele
   const action = async (disconnect: boolean) => {
     setBusy(true); setImage(null); setConnection(null); setError('');
     try { if (disconnect) await api.disconnectSession(true); else await api.startPairing(); setRevision(r => r + 1); }
-    catch (e) { setError(e instanceof Error ? e.message : 'Falha na conexão.'); }
+    catch { setError('Não foi possível conectar. Confira se o Host está rodando e se o endereço está correto.'); }
     finally { setBusy(false); }
   };
   return <ScrollView contentContainerStyle={styles.container}>

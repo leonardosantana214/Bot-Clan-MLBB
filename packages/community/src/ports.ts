@@ -2,7 +2,7 @@ import type { AdminEvent, MembershipEvent, ModerationFlag, NotificationRecord, N
 
 export interface MembershipEventFilter { readonly groupId?: string; readonly participantId?: string }
 export interface NotificationPatch {
-  readonly state: NotificationState; readonly attempts?: number; readonly updatedAt: number;
+  readonly text?: string; readonly state: NotificationState; readonly attempts?: number; readonly updatedAt: number;
   readonly nextAttemptAt?: number; readonly lastError?: string | null;
 }
 
@@ -26,6 +26,8 @@ export interface CommunityStore {
   listWarnings(memberId: string): Promise<readonly Warning[]>;
   /** Idempotency key (event, destination). False when already claimed. */
   claimNotificationEvent(eventId: string, destination: string): Promise<boolean>;
+  /** Atomically claims an event and upserts its durable aggregate. */
+  claimAndSaveNotification(eventId: string, record: NotificationRecord): Promise<boolean>;
   saveNotification(record: NotificationRecord): Promise<boolean>;
   updateNotification(id: string, patch: NotificationPatch): Promise<void>;
   listNotifications(state?: NotificationState): Promise<readonly NotificationRecord[]>;

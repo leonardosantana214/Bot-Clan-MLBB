@@ -1,3 +1,4 @@
+import { withTimeout } from './limits.js';
 import type { WhatsAppConnection } from '@aerobot/control-protocol';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -22,6 +23,8 @@ type Handler<T> = (value: T) => void;
 export type AdapterPairingState = WhatsAppConnection & { botJid?: string };
 export interface AdapterOptions {
   sessionDir?: string;
+  sendTimeoutMs?: number;
+  shutdownBudgetMs?: number;
   pairing?: { mode: 'qr'; onQr: Handler<string> } | { mode: 'code'; phone: string; onCode: Handler<string> };
   minIntervalMs?: number; maxPerWindow?: number; windowMs?: number; maxQueue?: number;
   baseBackoffMs?: number; maxBackoffMs?: number; maxReconnectAttempts?: number;
@@ -51,7 +54,7 @@ export class BaileysAdapter implements ObservableWhatsAppAdapter {
   constructor(private readonly factory: SocketFactory, private readonly options: AdapterOptions = {}) {
     this.sessionDir = options.sessionDir ?? process.env.AEROBOT_SESSION_DIR ?? join(homedir(), '.aerobot', 'whatsapp-session');
     if (options.pairing?.mode === 'code' && !/^\d{7,15}$/.test(options.pairing.phone)) throw new Error('Pairing phone must contain country code and digits only');
-    for (const value of [options.minIntervalMs, options.maxPerWindow, options.windowMs, options.maxQueue, options.baseBackoffMs, options.maxBackoffMs, options.maxReconnectAttempts]) {
+    for (const value of [options.sendTimeoutMs, options.shutdownBudgetMs, options.minIntervalMs, options.maxPerWindow, options.windowMs, options.maxQueue, options.baseBackoffMs, options.maxBackoffMs, options.maxReconnectAttempts]) {
       if (value !== undefined && (!Number.isSafeInteger(value) || value < 1)) throw new Error('Limits must be positive integers');
     }
   }
@@ -193,7 +196,17 @@ export class BaileysAdapter implements ObservableWhatsAppAdapter {
   sendMessage(group: string, text: string): Promise<void> {
     if (this.paused || this.stopped || this.state !== 'open') return Promise.reject(new Error('Replies unavailable'));
     if (!group.endsWith('@g.us') || !text.trim() || this.queue.length >= (this.options.maxQueue ?? 50)) return Promise.reject(new Error('Invalid reply or queue full'));
-    return new Promise((resolve, reject) => { this.queue.push({ group, text, resolve, reject }); this.pump(); });
+    let queued: (typeof this.queue)[number] | undefined;
+    const result = new Promise<void>((resolve, reject) => {
+      queued = { group, text, resolve, reject };
+      this.queue.push(queued); this.pump();
+    });
+    return withTimeout(result, this.options.sendTimeoutMs ?? 30_000).catch(error => {
+      // Remove an expired waiting item so it cannot be sent after the caller retries.
+      const index = queued ? this.queue.indexOf(queued) : -1;
+      if (index >= 0) this.queue.splice(index, 1);
+      throw error;
+    });
   }
   private pump(): void {
     if (this.sending || this.sendTimer || !this.queue.length || this.paused || this.stopped || this.state !== 'open') return;
@@ -205,7 +218,7 @@ export class BaileysAdapter implements ObservableWhatsAppAdapter {
     const item = this.queue.shift()!, socket = this.socket!;
     this.lastSent = now; this.sent.push(now);
     this.sending = (async () => {
-      try { await socket.sendMessage(item.group, item.text); item.resolve(); }
+      try { await withTimeout(socket.sendMessage(item.group, item.text), this.options.sendTimeoutMs ?? 30_000); item.resolve(); }
       catch { item.reject(new Error('Reply failed')); this.log('Reply failed'); }
     })();
     void this.sending.finally(() => { this.sending = undefined; this.pump(); });
@@ -217,7 +230,9 @@ export class BaileysAdapter implements ObservableWhatsAppAdapter {
   async disconnect(): Promise<void> {
     this.stopped = true;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer); this.reconnectTimer = undefined;
-    this.rejectQueue(); await this.release(); await this.opening; await this.sending;
+    this.rejectQueue();
+    try { await withTimeout((async () => { await this.release(); await this.opening; await this.sending; })(), this.options.shutdownBudgetMs ?? 5000); }
+    catch { this.log('Disconnect budget exhausted'); }
     this.setState('disconnected');
   }
 }
