@@ -112,7 +112,9 @@ export const GroupRouteSchema = z.object({
 });
 export const RankEntrySchema = z.object({
   rank: z.number().int().positive(), memberId: z.string(), nickname: z.string(), level: z.number().int().nonnegative(),
-  xp: z.number().int(), messagesSent: z.number().int().nonnegative()
+  xp: z.number().int(), messagesSent: z.number().int().nonnegative(),
+  totalXp: z.number().int().optional(), currentLevelXp: z.number().int().nonnegative().optional(),
+  nextLevelXp: z.number().int().positive().optional(), progress: z.number().min(0).max(1).optional()
 });
 export const ExportReceiptSchema = z.object({
   dataset: ExportDatasetSchema, fileName: z.string(), rowCount: z.number().int().nonnegative(),

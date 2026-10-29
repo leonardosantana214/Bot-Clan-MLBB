@@ -28,6 +28,13 @@ session-*.json
 sender-key-*.json
 app-state-sync-*.json
 *.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+group-roles.json
+session/
+session-data/
+.session/
 *.sqlite3
 *.db
 backups/

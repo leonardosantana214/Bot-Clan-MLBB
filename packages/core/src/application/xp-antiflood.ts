@@ -1,9 +1,7 @@
-import { InMemorySeenMessageStore } from './seen-messages.js';
 import type { Clock, IncomingMessage, MemberRepository, XpLedger } from './ports.js';
 export interface XpPolicy { enabled: boolean; minIntervalMs: number; dailyCap: number; award: number }
 export const defaultXpPolicy: XpPolicy = { enabled: false, minIntervalMs: 60_000, dailyCap: 100, award: 10 };
 export class XpAntiflood {
-  private readonly seen = new InMemorySeenMessageStore();
   private readonly fingerprints = new Map<string, { day: string; texts: Set<string> }>();
   readonly policy: Readonly<XpPolicy>;
   constructor(private readonly members: MemberRepository, private readonly ledger: XpLedger, private readonly clock: Clock, policy: XpPolicy = defaultXpPolicy) {
@@ -15,7 +13,6 @@ export class XpAntiflood {
   }
   async process(message: IncomingMessage): Promise<void> {
     if (message.fromMe || !this.policy.enabled || message.text.trim().startsWith('/')) return;
-    if (!await this.seen.claim(message.groupId, message.id, this.clock.now())) return;
     const member = await this.members.findByIdentity(message.senderId);
     if (!member || member.status !== 'active') return;
     const now = this.clock.now();

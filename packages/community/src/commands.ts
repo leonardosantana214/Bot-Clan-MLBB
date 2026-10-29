@@ -63,10 +63,11 @@ export function createCommunityCommands(deps: CommunityCommandsDeps): CommunityC
   };
 
   const minhasadvertencias: CommandDefinition = {
-    name: 'minhasadvertencias', description: 'Mostra suas advertências.', input: noArguments,
+    name: 'minhasadvertencias', description: 'Orienta a consulta privada à liderança.', input: noArguments,
     async handle(context) {
       const member = await context.members.findByIdentity(context.message.senderId);
       if (!member) return 'Use /registrar <nome> primeiro.';
+      if (context.message.groupId !== deps.adminGroupId) return 'Consulte a liderança para acessar os detalhes das suas advertências.';
       return formatWarnings('Suas advertências', await deps.store.listWarnings(member.id), false);
     }
   };

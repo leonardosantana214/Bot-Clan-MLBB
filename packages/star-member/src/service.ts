@@ -1,8 +1,9 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Clock, Member, MemberRepository } from '@aerobot/core';
+import { displayName } from '@aerobot/core';
 import { categories, defaultConfig, emptyPoints, latest, periodAt, previousPeriod } from './model.js';
-import type { Category, Decision, Merit, Raffle, ScoreEntry, Snapshot, StarConfig, StarRepository, Standing } from './model.js';
+import type { Category, Decision, Merit, Raffle, ScoreEntry, Snapshot, StarConfig, StarRepository, StarState, Standing } from './model.js';
 import { draw, raffleCommitment, verifyRaffle } from './raffle.js';
 
 const periodSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
@@ -51,7 +52,7 @@ export class StarMember {
         points[e.category] += e.points;
         if (points[e.category] < 0 || points[e.category] > config.weights[e.category]) throw new Error('Limite da categoria ' + e.category + ': 0 a ' + config.weights[e.category] + '.');
       }
-      return { memberId: member.id, displayName: member.name, points, total: Object.values(points).reduce((a, b) => a + b, 0) };
+      return { memberId: member.id, displayName: displayName(member.name), points, total: Object.values(points).reduce((a, b) => a + b, 0) };
     }).sort((a, b) => b.total - a.total || a.memberId.localeCompare(b.memberId));
   }
   async score(input: ScoreInput, actor: string, period = this.currentPeriod()): Promise<ScoreEntry> {
@@ -70,8 +71,13 @@ export class StarMember {
     const state = this.deps.repository.read();
     const snapshot = latest(state, period);
     const standing = (snapshot?.standings ?? this.rows(state.entries, members, period)).find(r => r.memberId === memberId);
-    const eligible = !!standing && members.some(m => m.id === memberId && allowed(m)) && standing.total >= (snapshot?.config.threshold ?? this.config.threshold);
-    return standing ? { standing, eligible } : { eligible: false };
+    const pool = snapshot?.eligible ?? this.rows(state.entries, members, period).filter(r => r.total >= this.config.threshold).map(r => r.memberId);
+    const eligible = this.candidates(state, members, period, pool, snapshot?.config ?? this.config).includes(memberId);
+    return standing ? { standing: { ...standing, displayName: displayName(standing.displayName) }, eligible } : { eligible: false };
+  }
+  private candidates(state: StarState, members: readonly Member[], period: string, pool: readonly string[], config: StarConfig): string[] {
+    const excluded = config.excludePreviousWinner ? [...state.raffles].reverse().find(r => r.period === previousPeriod(period))?.winner : undefined;
+    return [...new Set(pool)].filter(id => id !== excluded && members.some(m => m.id === id && allowed(m))).sort();
   }
   async close(actor: string, period = this.currentPeriod()): Promise<Snapshot> {
     periodSchema.parse(period); text.parse(actor);
@@ -126,7 +132,7 @@ export class StarMember {
       if (state.raffles.some(r => r.period === period && r.snapshotVersion === snapshot.version)) throw new Error('Sorteio já registrado neste período.');
       const previous = [...state.raffles].reverse().find(r => r.period === previousPeriod(period));
       const excluded = snapshot.config.excludePreviousWinner ? previous?.winner : undefined;
-      const candidates = [...new Set(snapshot.eligible)].filter(id => id !== excluded && members.some(m => m.id === id && allowed(m))).sort();
+      const candidates = this.candidates(state, members, period, snapshot.eligible, snapshot.config);
       if (!candidates.length) throw new Error('Nenhum elegível após exclusão do vencedor anterior e membros não habilitados.');
       const bytes = (this.deps.randomBytes ?? randomBytes)(32);
       if (bytes.length !== 32) throw new Error('Gerador deve retornar 32 bytes.');
@@ -153,7 +159,7 @@ export class StarMember {
     });
   }
   publicRanking(period = this.currentPeriod()): { displayName: string; total: number }[] {
-    return latest(this.deps.repository.read(), period)?.standings.map(r => ({ displayName: r.displayName, total: r.total })) ?? [];
+    return latest(this.deps.repository.read(), period)?.standings.map(r => ({ displayName: displayName(r.displayName), total: r.total })) ?? [];
   }
   history(memberId: string): { period: string; total?: number; meritWinner?: string; raffleWinner?: string }[] {
     const state = this.deps.repository.read();
@@ -161,7 +167,7 @@ export class StarMember {
       const snapshot = latest(state, period)!;
       const own = snapshot.standings.find(r => r.memberId === memberId);
       const raffle = [...state.raffles].reverse().find(r => r.period === period && r.status === 'publicado');
-      const name = (id: string | undefined) => snapshot.standings.find(r => r.memberId === id)?.displayName;
+      const name = (id: string | undefined) => { const value = snapshot.standings.find(r => r.memberId === id)?.displayName; return value === undefined ? undefined : displayName(value); };
       const meritWinner = name(snapshot.merit.winner);
       const raffleWinner = name(raffle?.winner);
       return { period, ...(own ? { total: own.total } : {}), ...(meritWinner ? { meritWinner } : {}), ...(raffleWinner ? { raffleWinner } : {}) };

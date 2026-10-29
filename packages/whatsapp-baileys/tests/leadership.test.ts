@@ -30,6 +30,10 @@ it('opera liderança autenticada pelo HTTP loopback, audita e exporta dados prot
     expect((await client.listGroups())[0]).toMatchObject({name:'Grupo sint?tico',memberCount:5});
     await client.leadershipAction({action:'warn',memberId,reason:'Justificativa sintética',confirm:true});
     const moderation=await client.leadershipQuery({schemaVersion:1,section:'moderation'});expect(JSON.stringify(moderation)).toContain('Justificativa sintética');
+    await client.leadershipAction({action:'warn',memberId,reason:'Contato +00 000 000 0000 @teste',confirm:true});
+    const sanitized=await client.leadershipQuery({schemaVersion:1,section:'moderation'});
+    expect(JSON.stringify(sanitized)).toContain('Contato [número] teste');
+    expect(JSON.stringify(sanitized)).not.toContain('+00 000 000 0000');
     for(const [category,points] of [['atividade',30],['rising',25]] as const) await client.leadershipAction({action:'starScore',confirm:true,memberId,category,points,reason:'M?rito sint?tico'});
     const period=new Date().toISOString().slice(0,7);await client.leadershipAction({action:'starClose',period,confirm:true});await client.leadershipAction({action:'starDraw',period,confirm:true});await client.leadershipAction({action:'starApprove',period,reason:'Revisado pela liderança',confirm:true});
     expect(JSON.stringify(await client.leadershipQuery({schemaVersion:1,section:'star'}))).toContain('"verified":true');
@@ -57,4 +61,25 @@ it('roteia manuten??o, conta recebidos com deduplica??o e aplica módulos',async
     const repeated={id:'dedupe',groupId:'unrouted',senderId:'test',text:'NO CONTENT STORED',fromMe:false};await host.receive(repeated);await host.receive(repeated);expect(runtime.today('unrouted')).toBe(1);
     const logs=await controller.requestExport('command_logs');expect(logs.previewCsv).toContain('ping');expect(logs.previewCsv).not.toContain('Mensagem');expect(logs.previewCsv).not.toContain('NO CONTENT');
   } finally {controller.close();await host.close();runtime.close();await rm(folder,{recursive:true,force:true});}
+});
+
+it('adapta levelEvents do Host para analytics e exportação', async () => {
+  const folder=await mkdtemp(join(tmpdir(),'level-control-'));
+  const adapter={sessionDir:folder,connectionState:'open',pendingQueueCount:0,processedPerMinute:0,responsesPaused:false,lastConnectedAt:'',setPaused:()=>undefined};
+  const host=composeHost({adapter:new FakeWhatsAppAdapter(),sessionDir:folder,groupId:'chat',adminGroupId:'adm',levelFormula:{baseXp:50,exponent:1}});
+  const control=await startControlServer(host.storage,adapter,{AEROBOT_CONTROL_PORT:'0',AEROBOT_ADMIN_PASSWORD_HASH:await hashPassword('synthetic-password',{N:1024})},{
+    levelFormula:host.levelFormula,
+    levelEvents:{list:async(start,end)=>(await host.levelEvents.list(undefined,start,end)).map(e=>({eventId:e.transactionId,memberId:e.memberId,occurredAt:e.occurredAt,previousLevel:e.previousLevel,newLevel:e.newLevel}))}
+  });
+  try {
+    await host.storage.members.register({id:'level-test',name:'Teste',identities:[],status:'active',registeredAt:1});
+    await host.storage.ledger.append({id:'crossing',memberId:'level-test',amount:125,occurredAt:Date.now(),source:'manual',sourceId:'crossing',actorId:'test',reason:'Teste'});
+    const client=new ControlClient(new HttpTransport(control!.url));await client.login('synthetic-password');
+    const analytics=await client.leadershipQuery({schemaVersion:1,section:'analytics'});
+    expect(analytics.rows[0]!.levelUps).toMatchObject([{previousLevel:0,newLevel:2}]);
+    expect((await client.getRanking('all_time'))[0]).toMatchObject({totalXp:125,level:2,nextLevelXp:150,progress:0.5});
+    const files=await client.leadershipAction({action:'powerbiExport',start:'2026-01-01',endExclusive:'2027-01-01'});
+    expect(files.rows.some(r=>r.fileName==='level_ups_v1.csv')).toBe(true);
+    expect(files.unavailable.join()).not.toContain('até integração');
+  } finally {await control?.server.close();await host.close();await rm(folder,{recursive:true,force:true});}
 });

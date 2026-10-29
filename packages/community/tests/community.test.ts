@@ -331,8 +331,10 @@ describe.each(stores)('community (%s store)', (_name, makeStore) => {
       expect(listing).toContain('spam de links no chat');
       expect(listing).toContain('por Beto');
       const own = await run(env, memberCommands, env.msg('/minhasadvertencias', ANA));
-      expect(own).toContain('Suas advertências (2)');
-      expect(await run(env, memberCommands, env.msg('/minhasadvertencias', BETO))).toContain('nenhuma');
+      expect(own).toContain('Consulte a liderança');
+      expect(own).not.toContain('spam');
+      expect(own).not.toContain(new Date(env.clock.now()).toISOString().slice(0, 10));
+      expect(await run(env, memberCommands, env.msg('/minhasadvertencias', BETO))).toBe(own);
       expect((await env.store.listWarnings('aero:ana')).map(w => w.authorId)).toEqual(['aero:beto', 'aero:beto']);
     });
 

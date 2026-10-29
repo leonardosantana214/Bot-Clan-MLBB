@@ -12,7 +12,7 @@ export function remoteError(error: unknown): string {
     if (error.code === 'invalid_credentials') return 'Senha inválida.';
     if (error.code === 'unauthenticated' || error.code === 'not_logged_in') return 'Sessão expirada. Entre novamente.';
     if (error.code === 'rate_limited') return 'Muitas tentativas. Aguarde e tente novamente.';
-    if (error.code === 'transport') return 'Não foi possível conectar ao Host. Verifique endereço, rede e origens permitidas.';
+    if (error.code === 'transport') return 'Não foi possível conectar ao Host. Verifique a rede e repita a intenção; a chave será preservada.';
   }
   return 'Não foi possível concluir a operação no Host.';
 }
@@ -34,7 +34,10 @@ export class RemoteControllerApi implements ControllerApi {
   setMaintenanceMode(enabled: boolean) { return this.run(() => this.client.setMaintenanceMode(enabled)); }
   getGroups() { return this.run(() => this.client.listGroups()); }
   toggleGroupModule(id: string, key: ModuleKey, enabled: boolean) { return this.run(() => this.client.setGroupModules(id, { [key]: enabled })); }
-  getXpRanking(period: 'daily'|'weekly'|'monthly'|'all_time' = 'all_time'): Promise<XpRankEntry[]> { return this.run(async () => (await this.client.getRanking(period)).map(r => ({ ...r, mlbbRole: 'Indisponível', mythicTier: 'Indisponível', nextLevelXp: 100 * (r.level + 1) ** 2, streakDays: null }))); }
+  getXpRanking(period: 'daily'|'weekly'|'monthly'|'all_time' = 'all_time'): Promise<XpRankEntry[]> { return this.run(async () => (await this.client.getRanking(period)).map(r => {
+    if (r.totalXp === undefined || r.nextLevelXp === undefined || r.progress === undefined) throw new Error('Host sem dados de progressão; atualize o Host.');
+    return { ...r, totalXp: r.totalXp, nextLevelXp: r.nextLevelXp, progress: r.progress, mlbbRole: 'Indisponível', mythicTier: 'Indisponível', streakDays: null };
+  })); }
   exportCsv(dataset: ExportDataset) { return this.run(() => this.client.requestExport(dataset)); }
   async getSettings(): Promise<BotSettings> { throw new Error('Indisponível: configurações não suportadas pelo protocolo.'); }
   async updateSettings(): Promise<BotSettings> { throw new Error('Indisponível: configurações não suportadas pelo protocolo.'); }

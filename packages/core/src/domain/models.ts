@@ -35,3 +35,10 @@ export function calculateLevel(totalXp: number, formula: LevelFormula = defaultL
 export function xpBalance(entries: readonly XpTransaction[]): number {
   return entries.reduce((sum, entry) => sum + entry.amount, 0);
 }
+export function levelProgress(totalXp: number, formula: LevelFormula = defaultLevelFormula) {
+  const level = calculateLevel(totalXp, formula);
+  const currentLevelXp = Math.ceil(formula.baseXp * level ** formula.exponent);
+  const nextLevelXp = Math.ceil(formula.baseXp * (level + 1) ** formula.exponent);
+  const progress = Math.max(0, Math.min(1, (totalXp - currentLevelXp) / (nextLevelXp - currentLevelXp)));
+  return { totalXp, level, currentLevelXp, nextLevelXp, progress };
+}

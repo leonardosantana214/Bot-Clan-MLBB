@@ -19,7 +19,7 @@ async function ownId(context: CommandContext): Promise<string | undefined> {
 /** The host MUST allow these commands exclusively on its administration group route. */
 export function adminCommands(service: StarMember): readonly CommandDefinition[] {
   return [
-    command('pontuar', 'Lança pontos com justificativa.', z.array(z.string()).min(4), async (ctx, args) => {
+    command('pontuar', 'Lança pontos. Uso: /pontuar <aeroId> <categoria: atividade|partidas|rising|comunidade|fairplay> <pontos inteiros> <justificativa>', z.array(z.string()).min(4), async (ctx, args) => {
       const [memberId, category, points, ...reason] = args;
       await service.score({ memberId: memberId!, category: z.enum(categories).parse(category) as Category, points: Number(points), reason: reason.join(' ') }, ctx.message.senderId);
       return 'Pontuação registrada.';
@@ -32,9 +32,9 @@ export function adminCommands(service: StarMember): readonly CommandDefinition[]
       await service.raffle(ctx.message.senderId); return 'Sorteio registrado. Pendente de aprovação.';
     }),
     command('aprovarsorteio', 'Aprova a publicação do sorteio.', noArgs, async ctx => {
-      service.approve(ctx.message.senderId); return 'Sorteio aprovado e publicado.';
+      service.approve(ctx.message.senderId); return 'Aprovado; divulgação pendente.';
     }),
-    command('desempatar', 'Registra a decisão dos ADMs sobre o mérito.', z.array(z.string()).min(2), async (ctx, args) => {
+    command('desempatar', 'Registra a decisão dos ADMs. Uso: /desempatar <aeroId> <justificativa>', z.array(z.string()).min(2), async (ctx, args) => {
       service.resolveTie(args[0]!, ctx.message.senderId, args.slice(1).join(' ')); return 'Decisão de mérito registrada.';
     })
   ];

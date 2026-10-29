@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
 import { FakeWhatsAppAdapter, type IncomingMessage, type MembershipChange, type ConnectionState, type ObservableWhatsAppAdapter } from '@aerobot/core';
 import { composeHost } from '../src/compose.js';
+import { SqliteCommunityStore } from '@aerobot/community';
+import { noArguments } from '@aerobot/core';
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup(); });
@@ -92,4 +94,21 @@ it('feeds observable events and moderation, ticks reports only to ADM and unsubs
 
 it('rejects a shared ADM/CHAT destination before opening stores', async () => {
   expect(() => composeHost({ adapter: new FakeWhatsAppAdapter(), sessionDir: 'unused', groupId: 'same', adminGroupId: 'same' })).toThrow('distinct');
+});
+
+it('deduplica antes da moderação e permite reentrega após falha de handler', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'aerobot-redelivery-'));
+  cleanups.push(() => rm(dir, { recursive: true, force: true }));
+  let calls = 0;
+  const adapter = new FakeWhatsAppAdapter();
+  const host = composeHost({ adapter, sessionDir: dir, groupId: 'chat', adminGroupId: 'adm', extraCommands: [{ name: 'retry', input: noArguments, handle: async () => { if (++calls === 1) throw new Error('synthetic handler failure'); return 'Concluído.'; } }] });
+  cleanups.push(() => host.close());
+  const message = { id: 'repeat-id', groupId: 'chat', senderId: 'synthetic', text: 'Mensagem sintética de repetição', fromMe: false };
+  await Promise.all(Array.from({ length: 12 }, () => host.receive(message)));
+  const store = new SqliteCommunityStore(join(dir, 'bot.sqlite'));
+  try { expect(await store.listFlags()).toHaveLength(0); } finally { store.close(); }
+  const command = { ...message, id: 'retry-id', text: '/retry' };
+  await expect(host.receive(command)).rejects.toThrow('synthetic handler failure');
+  await host.receive(command); await host.receive(command);
+  expect(calls).toBe(2); expect(adapter.sent).toEqual([{ groupId: 'chat', text: 'Concluído.' }]);
 });

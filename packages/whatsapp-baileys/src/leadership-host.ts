@@ -1,7 +1,8 @@
 import { join, basename } from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
 import { mkdir, readFile, lstat } from 'node:fs/promises';
-import { calculateLevel } from '@aerobot/core';
+import { sanitizeText } from '@aerobot/community';
+import { displayName, levelProgress, defaultLevelFormula, type LevelFormula } from '@aerobot/core';
 import type { SqliteStorage } from '@aerobot/storage-sqlite';
 import { StarMember, SqliteStarRepository, verifyRaffle } from '@aerobot/star-member';
 import { SqliteCommunityStore } from '@aerobot/community';
@@ -16,7 +17,7 @@ export interface LevelEventsPort { list(start:number,endExclusive:number):Promis
 /** Only non-path metadata crosses the protocol boundary. Raw identifiers are omitted. */
 export class LeadershipHost {
   private starStore: SqliteStarRepository; private community: SqliteCommunityStore; private scout: SqliteScout; private runtime: ControlRuntime; private star: StarMember;
-  constructor(private storage: SqliteStorage, private folder: string, private env: NodeJS.ProcessEnv, private levelEvents?: LevelEventsPort) {
+  constructor(private storage: SqliteStorage, private folder: string, private env: NodeJS.ProcessEnv, private levelEvents?: LevelEventsPort, private formula: LevelFormula = defaultLevelFormula) {
     const db=join(folder,env.AEROBOT_CONTROL_DEMO === '1' ? 'demo.sqlite' : 'bot.sqlite');
     this.starStore=new SqliteStarRepository(db); this.community=new SqliteCommunityStore(db); this.scout=new SqliteScout(db); this.runtime=new ControlRuntime(folder);
     this.star=new StarMember({repository:this.starStore,members:storage.members,clock:{now:Date.now}});
@@ -29,7 +30,7 @@ export class LeadershipHost {
     const rows=await Promise.all(all.map(async m=> {
       const ledger=await this.storage.ledger.list(m.id); const xp=ledger.reduce((sum,t)=>sum+t.amount,0);
       const history=ledger.filter(t=>t.occurredAt >= (q.start ?? 0) && t.occurredAt < (q.end ?? Number.MAX_SAFE_INTEGER));
-      return {memberId:this.key(m.id),name:m.name,status:m.status,registeredAt:m.registeredAt,level:calculateLevel(xp),xp,periodXp:history.reduce((sum,t)=>sum+t.amount,0),history:history.map(t=>({id:this.key(t.id),amount:t.amount,at:t.occurredAt,source:t.source})),rawId:m.id};
+      return {memberId:this.key(m.id),name:displayName(m.name),status:m.status,registeredAt:m.registeredAt,...levelProgress(xp,this.formula),xp,periodXp:history.reduce((sum,t)=>sum+t.amount,0),history:history.map(t=>({id:this.key(t.id),amount:t.amount,at:t.occurredAt,source:t.source})),rawId:m.id};
     }));
     return rows.filter(m=>(!q.search || m.name.toLocaleLowerCase('pt-BR').includes(q.search.toLocaleLowerCase('pt-BR'))) && (!q.memberId || m.memberId===q.memberId) && (!q.status || m.status===q.status) && (q.level===undefined || m.level===q.level));
   }
@@ -53,7 +54,7 @@ export class LeadershipHost {
     const members=await this.members(q);
     if(q.section==='members') return this.result(members.map(m=>({memberId:m.memberId,name:m.name,status:m.status,registeredAt:m.registeredAt,level:m.level,xp:m.xp,periodXp:m.periodXp,history:m.history})));
     if(q.section==='moderation') {
-      const warnings=(await Promise.all(members.map(async m=>(await this.community.listWarnings(m.rawId)).filter(w=>w.at >= (q.start ?? 0) && w.at < (q.end ?? Number.MAX_SAFE_INTEGER)).map(w=>({id:w.id,memberId:m.memberId,name:m.name,reason:w.reason,at:w.at,author:'ADM'}))))).flat();
+      const warnings=(await Promise.all(members.map(async m=>(await this.community.listWarnings(m.rawId)).filter(w=>w.at >= (q.start ?? 0) && w.at < (q.end ?? Number.MAX_SAFE_INTEGER)).map(w=>({id:w.id,memberId:m.memberId,name:m.name,reason:sanitizeText(w.reason,200),at:w.at,author:'ADM'}))))).flat();
       const flags=(await this.community.listFlags(q.groupId)).filter(f=>!q.memberId || (f.memberId!==null && this.key(f.memberId)===q.memberId)).filter(f=>f.at >= (q.start ?? 0) && f.at < (q.end ?? Number.MAX_SAFE_INTEGER)).map(f=>({id:f.id,kind:f.kind,groupId:f.groupId,memberId:f.memberId ? this.key(f.memberId):null,at:f.at}));
       return this.result([{warnings,flags}]);
     }
@@ -84,7 +85,7 @@ export class LeadershipHost {
       case 'settingsSave': this.runtime.set('xpPolicy',a.xp); return this.result([{saved:true,restartRequired:true}]);
       case 'scoutSave': this.scout.save({...a.candidate,updatedAt:Date.now()}); return this.result([{saved:true}]);
       case 'scoutNote': this.scout.appendNote({schemaVersion:1,id:randomUUID(),candidateId:a.candidateId,text:a.reason,author:actor,at:Date.now()}); return this.result([{saved:true}]);
-      case 'warn': { const m=await this.resolve(a.memberId); await this.community.appendWarning({id:randomUUID(),memberId:m.id,reason:a.reason,authorId:actor,authorName:'ADM Controller',at:Date.now()}); return this.result([{saved:true}]); }
+      case 'warn': { const m=await this.resolve(a.memberId); await this.community.appendWarning({id:randomUUID(),memberId:m.id,reason:sanitizeText(a.reason,200),authorId:actor,authorName:'ADM Controller',at:Date.now()}); return this.result([{saved:true}]); }
       case 'starScore': { const m=await this.resolve(a.memberId); await this.star.score({memberId:m.id,category:a.category,points:a.points,reason:a.reason},actor); return this.result([{saved:true}]); }
       case 'starClose': await this.star.close(actor,a.period); return this.result([{closed:true}]);
       case 'starDraw': await this.star.raffle(actor,a.period); return this.result([{drawn:true}]);
@@ -101,7 +102,7 @@ export class LeadershipHost {
         await mkdir(folder,{recursive:true,mode:0o700});
         const source=repositorySource({list:()=>this.storage.members.list!()},this.storage.ledger,{list:async()=>this.storage.audit.list()});
         const snapshot=await source.snapshot();
-        const masked={snapshot:async()=>({...snapshot,members:snapshot.members.map(m=>({...m,id:this.key(m.id)})),xpTransactions:snapshot.xpTransactions.map(t=>({...t,id:this.key(t.id),memberId:this.key(t.memberId),sourceId:'',actorId:'',reason:''})),auditLog:[]})};
+        const masked={snapshot:async()=>({...snapshot,members:snapshot.members.map(m=>({...m,id:this.key(m.id),name:displayName(m.name)})),xpTransactions:snapshot.xpTransactions.map(t=>({...t,id:this.key(t.id),memberId:this.key(t.memberId),sourceId:'',actorId:'',reason:''})),auditLog:[]})};
         const paths=await exportCsv(masked,{outputFolder:folder,period:{start:a.start,endExclusive:a.endExclusive}});
         paths.push(...await exportLeadershipCsv(folder,{
           scout:this.scout.list().map(c=>[1,c.id,c.name,c.status,c.roles.join('|'),c.rank,c.stage,JSON.stringify(c.evaluation)]),
@@ -109,7 +110,7 @@ export class LeadershipHost {
           starScores:this.starStore.read().entries.map(e=>[1,e.period,this.key(e.memberId),e.category,e.points,e.at])
         }));
         if(this.levelEvents) {const start=Date.parse(a.start+'T00:00:00-03:00');const end=Date.parse(a.endExclusive+'T00:00:00-03:00');paths.push(await exportLevelUpsCsv(folder,(await this.levelEvents.list(start,end)).map(e=>[1,e.eventId,this.key(e.memberId),new Date(e.occurredAt).toISOString(),e.previousLevel,e.newLevel])));}
-        return this.result(await Promise.all(paths.map(async path=> {const content=await readFile(path,'utf8'); return {fileName:basename(path),rowCount:csvDataRows(content),previewCsv:content.slice(0,8192)};})),['level_ups_v1: indisponível at? integração de level_events.','Backup do Controller inclui banco principal e control.sqlite em cópias separadas.']);
+        return this.result(await Promise.all(paths.map(async path=> {const content=await readFile(path,'utf8'); return {fileName:basename(path),rowCount:csvDataRows(content),previewCsv:content.slice(0,8192)};})),[...(this.levelEvents ? [] : ['level_ups_v1: indisponível até integração de level_events.']),'Exportações pseudonimizadas; nomes e atributos ainda podem identificar pessoas.','Backup do Controller inclui banco principal e control.sqlite em cópias separadas.']);
       }
       default: throw new UnsupportedControlOperation();
     }

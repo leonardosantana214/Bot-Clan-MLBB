@@ -68,6 +68,14 @@ export class LoginThrottle {
     this.entries.set(key, e);
   }
   recordSuccess(key: string): void { this.entries.delete(key); }
+  /** A successful verification returns its reserved slot without clearing other failures. */
+  releaseSuccess(key: string): void {
+    const e = this.entries.get(key);
+    if (!e) return;
+    e.failures = Math.max(0, e.failures - 1);
+    if (e.failures < this.opts.freeAttempts) e.lockedUntil = 0;
+    if (e.failures === 0) this.entries.delete(key);
+  }
   private prune(): void {
     if (this.entries.size < this.opts.maxEntries) return;
     const t = this.now();

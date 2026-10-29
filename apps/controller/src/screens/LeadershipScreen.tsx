@@ -33,6 +33,7 @@ export function LeadershipScreen({api}:{api:ControllerApi}): React.JSX.Element {
   const [days,setDays]=useState(7); const [start,setStart]=useState(''); const [end,setEnd]=useState('');
   const [member,setMember]=useState(''); const [roster,setRoster]=useState<Record<string,unknown>[]>([]); const [reason,setReason]=useState(''); const [points,setPoints]=useState('5'); const [category,setCategory]=useState('atividade');
   const [period,setPeriod]=useState(new Date().toISOString().slice(0,7)); const [pending,setPending]=useState<LeadershipAction|null>(null);
+  const [retry,setRetry]=useState<LeadershipAction|null>(null);
   const [xpEnabled,setXpEnabled]=useState(false); const [xpAward,setXpAward]=useState('10'); const [xpCooldown,setXpCooldown]=useState('60'); const [xpCap,setXpCap]=useState('100');
   const [candidateId,setCandidateId]=useState(''); const [name,setName]=useState(''); const [mlbb,setMlbb]=useState(''); const [server,setServer]=useState(''); const [role,setRole]=useState(''); const [rank,setRank]=useState(''); const [stage,setStage]=useState(''); const [evaluation,setEvaluation]=useState(''); const [minEvaluation,setMinEvaluation]=useState(''); const [criterion,setCriterion]=useState('comunicacao');const [criterionScore,setCriterionScore]=useState('5');
   function bounds() { const now=Date.now(); return {start:start ? Date.parse(start+'T00:00:00-03:00') : now-days*86400000,end:end ? Date.parse(end+'T00:00:00-03:00') : now+1}; }
@@ -45,7 +46,7 @@ export function LeadershipScreen({api}:{api:ControllerApi}): React.JSX.Element {
   }
   useEffect(()=>{void load();},[section]);
   useEffect(()=>{void api.leadershipQuery?.({schemaVersion:1,section:'members'}).then(r=>setRoster(r.rows)).catch(()=>undefined);},[api]);
-  async function execute(action:LeadershipAction) { setBusy(true);setError(''); try {if(!api.leadershipAction) throw new Error('Use o Host control-demo no modo real.');setResult(await api.leadershipAction(action));setFiltersOpen(false);if(action.action!=='powerbiExport') await load();} catch(e) {setError(e instanceof Error?e.message:'Falha ao executar.');} finally{setBusy(false);} }
+  async function execute(action:LeadershipAction) { setBusy(true);setError(''); try {if(!api.leadershipAction) throw new Error('Use o Host control-demo no modo real.');setResult(await api.leadershipAction(action));setRetry(null);setFiltersOpen(false);if(action.action!=='powerbiExport') await load();} catch(e) {setRetry(action);setError(e instanceof Error?e.message:'Falha ao executar.');} finally{setBusy(false);} }
   async function download(fileName: string) {
     setBusy(true);setError('');
     try {
@@ -90,6 +91,7 @@ export function LeadershipScreen({api}:{api:ControllerApi}): React.JSX.Element {
     {section==='analytics'?<Card title="Power BI / Excel">{action('Gerar pasta de CSV no Host',{action:'powerbiExport',start:start||new Date(Date.now()-days*86400000).toISOString().slice(0,10),endExclusive:end||new Date(Date.now()+86400000).toISOString().slice(0,10)})}<Text style={textStyle}>A prévia é limitada; os arquivos completos ficam na pasta de exportação configurada no Host.</Text></Card>:null}
     </View> : null}
     {error?<Text accessibilityRole="alert" style={{...textStyle,color:colors.textSecondary}}>{error}</Text>:null}
+    {retry?<Button label="Repetir a mesma intenção" disabled={busy} onPress={()=>void execute(retry)}/>:null}
     {result?<Card title="Resultado">{section==='analytics' && array(summary.series).length?<Chart rows={array(summary.series)}/>:null}{result.unavailable.map((s,i)=><Text key={i} style={{...textStyle,color:colors.textSecondary}}>{s}</Text>)}{result.rows.filter(r=>typeof r.fileName==='string' && typeof r.previewCsv==='string').map(r=><Button key={String(r.fileName)} label={`Baixar ${r.fileName}`} disabled={busy} variant="outline" onPress={()=>void download(String(r.fileName))}/>)}<Data value={result.rows} names={Object.fromEntries(roster.map(m=>[String(m.memberId),String(m.name)]))}/></Card>:null}
     <ConfirmModal visible={pending!==null} title="Confirmar operação" description={pending ? review(pending) : ''} confirmLabel="Confirmar" onCancel={()=>setPending(null)} onConfirm={()=>{const a=pending;setPending(null);if(a) void execute(a);}}/>
   </ScrollView>;

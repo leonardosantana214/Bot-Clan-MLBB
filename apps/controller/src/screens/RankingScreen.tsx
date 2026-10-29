@@ -76,7 +76,7 @@ export function RankingScreen({ api, refreshSignal }: RankingScreenProps): React
       >
         <View style={ styles.list }>
           { entries.map((entry) => {
-            const progressRatio = Math.min(
+            const progressRatio = entry.progress ?? Math.min(
               1,
               Math.max(0, entry.xp / Math.max(1, entry.nextLevelXp))
             );
@@ -117,7 +117,7 @@ export function RankingScreen({ api, refreshSignal }: RankingScreenProps): React
 
                   <View style={ styles.metaLine }>
                     <Text style={ styles.xpText }>
-                      { entry.xp } / { entry.nextLevelXp } XP ({ progressPercent }%)
+                      { entry.totalXp ?? entry.xp } / { entry.nextLevelXp } XP total ({ progressPercent }%) · { entry.xp } XP no período
                     </Text>
                     <Text style={ styles.metaText }>
                       { entry.messagesSent } msgs • Ofensiva { entry.streakDays === null ? 'indisponível' : `${entry.streakDays}d` }

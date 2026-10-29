@@ -13,6 +13,8 @@ export const HEROI_USAGE_MESSAGE =
 export function createHeroiCommand(provider: MLBBProvider): CommandDefinition {
   return {
     name: 'heroi',
+    description: 'Consulta informações de um herói. Uso: /heroi <nome>',
+    usage: HEROI_USAGE_MESSAGE,
     input: heroQueryArgsSchema,
     async handle(_context, args) {
       const query = parseHeroQuery(args);

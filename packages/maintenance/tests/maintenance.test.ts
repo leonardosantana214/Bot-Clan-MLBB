@@ -31,6 +31,7 @@ async function seed(dir: string, members = 3): Promise<string> {
     await storage.audit.record({ action: 'seed', actorId: 'a', at: T0, subjectId: id });
   }
   await storage.seenMessages.claim('g', 'm1', T0);
+  await storage.seenMessages.complete('g', 'm1', T0);
   storage.close();
   return path;
 }
@@ -236,7 +237,9 @@ describe('retention', () => {
     await s.audit.record({ action: 'member.deleted', actorId: 'admin', at: now - 120 * DAY, subjectId: '3' });
     await s.ledger.append({ id: 't1', memberId: '1', amount: 5, occurredAt: now - 99 * DAY, source: 'manual', sourceId: 'x', actorId: 'a', reason: 'r' });
     await s.seenMessages.claim('g', 'old', now - 40 * DAY);
+    await s.seenMessages.complete('g', 'old', now - 40 * DAY);
     await s.seenMessages.claim('g', 'new', now - 1 * DAY);
+    await s.seenMessages.complete('g', 'new', now - 1 * DAY);
     s.close();
     return { db, now };
   }

@@ -52,6 +52,8 @@ export interface XpRankEntry {
   level: number;
   xp: number;
   nextLevelXp: number;
+  totalXp?: number;
+  progress?: number;
   messagesSent: number;
   streakDays: number | null;
 }

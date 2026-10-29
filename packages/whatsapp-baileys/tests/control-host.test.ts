@@ -22,7 +22,7 @@ it('liga SQLite, ranking, pausa e exportação ao HTTP real sem WhatsApp', async
     expect(await client.setResponsesPaused(true)).toMatchObject({ responsesPaused: true });
     expect(adapter.responsesPaused).toBe(true);
     expect(await client.setResponsesPaused(false)).toMatchObject({ responsesPaused: false });
-    expect(await client.getRanking('all_time')).toEqual([{ rank: 1, memberId: 'alice', nickname: '=Fictícia', xp: 500, level: 1, messagesSent: 1 }]);
+    expect(await client.getRanking('all_time')).toEqual([{ rank: 1, memberId: 'm_2bd806c97f0e00af1a1fc332', nickname: '=Fictícia', xp: 500, totalXp: 500, currentLevelXp: 200, nextLevelXp: 1132, progress: 300 / 932, level: 1, messagesSent: 1 }]);
     const receipt = await client.requestExport('clan_members');
     expect(receipt.rowCount).toBe(1);
     expect(receipt.previewCsv).toContain("'=Fictícia");
@@ -40,6 +40,18 @@ it('não inicia sem ambas variáveis e não inventa recursos ausentes', async ()
     await expect(new HostController(db, new Adapter()).listGroups()).rejects.toBeInstanceOf(UnsupportedControlOperation);
     await expect(new HostController(db, new Adapter()).getOverview()).resolves.toMatchObject({ clanName: 'AERO', hostStatus: 'online', totalMembers: 0, messagesToday: 0 });
   } finally { db.close(); }
+});
+
+it('usa total e fórmula configurada no Host, com XP do período separado', async () => {
+  const storage = new SqliteStorage(':memory:');
+  const controller = new HostController(storage, new Adapter(), {}, { baseXp: 50, exponent: 1 });
+  try {
+    await storage.members.register({ id: 'synthetic', name: '+00 (000) 000-0000', identities: [], status: 'active', registeredAt: 1 });
+    await storage.ledger.append({ id: 'old', memberId: 'synthetic', amount: 300, occurredAt: 1, source: 'manual', sourceId: 'old', actorId: 'test', reason: 'Teste' });
+    await storage.ledger.append({ id: 'today', memberId: 'synthetic', amount: 25, occurredAt: Date.now(), source: 'manual', sourceId: 'today', actorId: 'test', reason: 'Teste' });
+    expect(await controller.getRanking('daily')).toMatchObject([{ nickname: 'integrante AERO', xp: 25, totalXp: 325, level: 6, currentLevelXp: 300, nextLevelXp: 350, progress: 0.5 }]);
+    expect((await controller.requestExport('clan_members')).previewCsv).not.toContain('+00 (000) 000-0000');
+  } finally { controller.close(); storage.close(); }
 });
 it('aceita a senha simples em AEROBOT_ADMIN_PASSWORD (hash só em memória) e recusa a errada', async () => {
   const storage = new SqliteStorage(':memory:');

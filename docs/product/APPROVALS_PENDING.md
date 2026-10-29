@@ -32,3 +32,20 @@ Nenhum agente pode decidir estes itens. Status inicial de todos: **Proposta / Pe
 | A11 | Repositório público aprovado |
 | A12 | XP vem do MLBB — **inviável por API** (ver MLBB_PROVIDER_RESEARCH); XP por mensagem vem desativado e é configurável |
 | A13 | Aparelho antigo e desconhecido; compatibilidade Android ampla; modelo a confirmar |
+
+## Pendências da auditoria — Proposta/Pendente
+
+Não considerar estes itens corrigidos ou aprovados por este patch. A liderança deve registrar responsável, decisão e evidência de validação. Detalhes em [Privacidade e retenção](../security/PRIVACY_AND_RETENTION.md).
+
+| Achado | Aprovação necessária |
+|---|---|
+| #3/#4 | Migração futura para ID interno aleatório; exportações permanecem pseudonimizadas. |
+| #9 | TLS/túnel confiável para operação remota; HTTP continua pendente. |
+| #10 | Validação operacional das permissões e ACLs da sessão. |
+| #11 | Prazos e execução agendada de retenção, com responsável. |
+| #12/#13 | Política de backup, criptografia, rotação, consistência e teste de restauração. |
+| #18 | Regras, prêmios e procedimento verificável do sorteio. Aprovação administrativa não implica envio ao CHAT. |
+| #26 | Modelo de autoridade: qualquer pessoa que escreve no ADM pode executar comandos administrativos. |
+| #27 | Descrição da auditoria ausente do worktree/enunciado; obter texto original e decisão antes de encerrar. |
+| #28 | Descrição da auditoria ausente do worktree/enunciado; obter texto original e decisão antes de encerrar. |
+| #29 | Descrição da auditoria ausente do worktree/enunciado; obter texto original e decisão antes de encerrar. |
