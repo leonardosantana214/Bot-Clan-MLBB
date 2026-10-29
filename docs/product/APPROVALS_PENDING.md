@@ -1,6 +1,6 @@
 # Aprovações pendentes da liderança
 
-Nenhum agente pode decidir estes itens. Status inicial de todos: **Proposta / Pendente**.
+Nenhum agente pode aprovar regras em nome da liderança. A tabela inicial é histórica; as decisões posteriores abaixo prevalecem. Os novos itens continuam **Proposta / Pendente**, mesmo quando há implementação.
 
 | # | Decisão | Proposta atual | Impacto |
 |---|---|---|---|
@@ -13,7 +13,7 @@ Nenhum agente pode decidir estes itens. Status inicial de todos: **Proposta / Pe
 | A7 | Política de retenção de dados e de ex-membros | Ver PRIVACY_AND_RETENTION | LGPD |
 | A8 | Texto de consentimento / transparência do monitoramento | A redigir com a liderança | Cadastro |
 | A9 | Número dedicado para o bot e aceite do risco de banimento | Número exclusivo | Operação |
-| A10 | Papéis e quem pode o quê | Matriz em ACCESS_CONTROL (a criar) | RBAC |
+| A10 | Papéis e quem pode o quê | Política v1 em ACCESS_CONTROL; aceite operacional pendente | RBAC |
 | A11 | Licença do repositório e visibilidade (público/privado) | Privado até decisão | Publicação |
 | A12 | Fórmula de níveis e limites de XP | Valores iniciais configuráveis | Gamificação |
 | A13 | Aparelho reserva dedicado ao Host | Confirmar modelo/Android | Host |
@@ -46,6 +46,20 @@ Não considerar estes itens corrigidos ou aprovados por este patch. A liderança
 | #12/#13 | Política de backup, criptografia, rotação, consistência e teste de restauração. |
 | #18 | Regras, prêmios e procedimento verificável do sorteio. Aprovação administrativa não implica envio ao CHAT. |
 | #26 | Modelo de autoridade: qualquer pessoa que escreve no ADM pode executar comandos administrativos. |
-| #27 | Descrição da auditoria ausente do worktree/enunciado; obter texto original e decisão antes de encerrar. |
-| #28 | Descrição da auditoria ausente do worktree/enunciado; obter texto original e decisão antes de encerrar. |
-| #29 | Descrição da auditoria ausente do worktree/enunciado; obter texto original e decisão antes de encerrar. |
+| #27 | Aprovar outbox durável para notificações antes da agregação e distinguir confirmação local de recibo WhatsApp. |
+| #28 | Rever a exigência de presença left em todos os grupos visíveis, inclusive ADM; membros que nunca estiveram no ADM podem nunca ter revisão de saída. |
+| #29 | Definir limites/backpressure da entrada e prazo máximo de encerramento, com timeout/cancelamento de envio. |
+
+## Aprovações do líder — atualização final
+
+| Item | Estado e proposta a aprovar | Situação técnica / decisão adotada nesta documentação |
+|---|---|---|
+| Curva de níveis | **Proposta / Pendente:** `ceil(200*level^2.5)` como XP acumulado mínimo do nível | Já é padrão configurável no core; nível zero inicia em zero. Implementação não implica aprovação. |
+| Tom do conselheiro | **Proposta / Pendente:** revisar frases e limites do tom | Persona conselheiro desligada por padrão; estilo neutro. Opt-in por AEROBOT_PERSONA=conselheiro; textos locais, sem IA. |
+| Vencedor anterior | **Proposta / Pendente:** vencedor anterior não ganha no mês seguinte | Há exclusões no serviço de Membro Estrela; confirmar abrangência entre mérito, sorteio e meses sem fechamento antes da operação. |
+| Scout | **Proposta / Pendente:** acompanhar candidatos/jogadores manualmente | Cadastro, critérios e notas pela liderança já implementados; sem coleta automática de estatísticas pessoais do MLBB. Confirmar finalidade, acesso e retenção. |
+| XP por mensagem | **Proposta / Pendente:** decidir se habilitar, valores e antiflood | Desligado por padrão; depende de política global e módulo do grupo. Alterar política exige reinício. Não equivale a XP oficial do MLBB. |
+| Brincadeiras | **Proposta / Pendente:** texto, quiz e figurinhas | Não anunciar como implementadas. Música fora do escopo. |
+| Migração Zod 4 | **Proposta / Pendente:** planejar compatibilidade, atualizar schemas e testar contratos | Manifests atuais usam Zod ^3.24.2; não foi feita migração nesta tarefa de documentação. |
+
+Decisão documental: preservar os padrões seguros existentes e distinguir código disponível de regra aprovada. O repositório já é público conforme A11; a proposta inicial de mantê-lo privado está superada. Senha e demais segredos ficam fora dele. Os achados #27–#29 continuam abertos; sugestões de correção estão em [Privacidade e retenção](../security/PRIVACY_AND_RETENTION.md).
