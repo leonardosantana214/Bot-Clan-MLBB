@@ -33,7 +33,7 @@ As cores de texto sobre as superfícies escuras e o marfim sobre o botão primá
 - **Cormorant Garamond 500**: marca, títulos de seção, posições e números grandes.
 - **Manrope 400 / 500 / 600**: conteúdo, controles, rótulos e metadados.
 - Pacotes `@expo-google-fonts/cormorant-garamond@0.4.1` e `@expo-google-fonts/manrope@0.4.1`; arquivos TTF locais, licença OFL-1.1, com os avisos nas distribuições npm (`LICENSE_FONT`). Imports por peso evitam exportar toda a família. Nenhuma fonte é buscada de CDN em runtime.
-- Escala base: 12 / 14 / 16 / 18 / 22 / 28 px; títulos editoriais 24–38 px; métricas 40 px; marca de login 58 px. Navegação compacta 9 px e microrrótulos 10–12 px.
+- Escala base: 12 / 14 / 16 / 18 / 22 / 28 px; títulos editoriais 24–38 px; métricas 40 px; marca de login 58 px. Navegação compacta 11 px e microrrótulos 10–12 px.
 - Entrelinha base: 16 / 20 / 24 / 26 / 30 / 36 px. Microrrótulos em caixa alta com 2 px de espaçamento; wordmark com 8 px. Métricas usam `tabular-nums`.
 - A aplicação mostra fundo preto com monograma e marca enquanto as fontes carregam. Se o carregamento falhar, a plataforma pode usar fonte de fallback para manter o acesso ao painel.
 
@@ -47,7 +47,7 @@ Escala de espaço: 4 / 8 / 12 / 16 / 20 / 24 / 32 px. Raios: 2 / 4 / 6 px. Sem p
 - `AeroWordmark`: AERO em serifa espaçada, com `size` e `color`. Reutilizado no hero e cabeçalho.
 - `AeroIcon`: ícones SVG de traço 1,35 px, sem glifos de emoji. Uso na navegação e nos estados vazio/erro.
 - Assets: `assets/aero-mark.svg`, `assets/icon.png`, `public/favicon.svg` e ícones PNG de 192/512 px. Desenhados por código a partir do mesmo monograma; sem imagens baixadas. O manifest é ligado pelo HTML público e não adiciona service worker nem muda a política de cache.
-- `Button`: primário carmesim com filete dourado e texto marfim; secundário/outline com borda dourada; destrutivo carmesim. Foco claro, hover, pressed e disabled explícitos. Carregamento textual estático, mantendo bloqueio e semântica de busy existentes.
+- `Button`: primário carmesim com filete dourado e texto marfim; secundário/outline com borda dourada; destrutivo em contorno discreto e texto vermelho dessaturado. Alvos de toque mínimos de 44 × 44 px. Foco claro, hover, pressed e disabled explícitos. Carregamento textual estático, mantendo bloqueio e semântica de busy existentes.
 - `AeroPressable`: estados visuais compartilhados da navegação e dos seletores de demonstração; sem alterar handlers de ação. Alvo mínimo de 44 px.
 - `AeroInput`: campo escuro com borda dourada em foco, placeholder quente e estado não editável. Encaminha os handlers existentes, inclusive salvamento no blur.
 - `Card`: superfície sóbria, filete fino, título serifado e cabeçalho adaptável. `ListItem`: hierarquia em sans com separador inferior, evitando caixas dentro de caixas.
@@ -66,3 +66,7 @@ Nenhuma animação contínua foi adicionada. Carregamento e modal são estático
 Comandos na raiz: `corepack pnpm typecheck`, `corepack pnpm lint`, `corepack pnpm test`, `corepack pnpm build`; web: `corepack pnpm --filter @aerobot/controller build:web`.
 
 A revisão visual em navegador e os screenshots não foram realizados: a ferramenta de computer-use recusou acesso ao Microsoft Edge. A compilação web e os checks automatizados não substituem a revisão manual em 360–430 px, desktop, teclado, ampliação de texto e dispositivos iOS/Android. O PWA continua com os recursos de instalação existentes, sem promessa de funcionamento offline.
+
+## Polimento mobile
+
+Liderança mostra dez itens por lista e permite ver mais, preservando as divisórias. A troca de seção limpa resultados e invalida respostas anteriores por identificador de requisição. Seletores são secundários; Consultar é a ação primária.

@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     flex: 1
   },
   title: {
-    color: colors.textPrimary,
+    color: colors.gold,
     fontFamily: typography.families.display,
     fontSize: typography.sizes.section,
     fontWeight: typography.weights.medium,

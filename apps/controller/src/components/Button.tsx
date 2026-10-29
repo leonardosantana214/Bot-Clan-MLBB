@@ -74,6 +74,7 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
+    minWidth: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -93,7 +94,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primaryBorder
   },
   variant_danger: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.transparent,
     borderColor: colors.primaryBorder
   },
   variant_ghost: {
@@ -103,7 +104,7 @@ const styles = StyleSheet.create({
   size_sm: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
-    minHeight: 36
+    minHeight: 44
   },
   size_md: {
     paddingVertical: spacing.sm,
@@ -139,7 +140,7 @@ const styles = StyleSheet.create({
     color: colors.primaryText
   },
   text_danger: {
-    color: colors.textOnPrimary
+    color: colors.dangerText
   },
   text_ghost: {
     color: colors.textSecondary

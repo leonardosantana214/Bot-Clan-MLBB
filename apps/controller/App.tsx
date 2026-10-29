@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0,
     color: colors.textSecondary,
     fontFamily: typography.families.medium,
     fontSize: typography.sizes.nav,

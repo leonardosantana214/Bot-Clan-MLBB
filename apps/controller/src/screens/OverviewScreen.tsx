@@ -39,7 +39,7 @@ export function OverviewScreen({
     setError(null);
     try {
       const [overviewData, hostData] = await Promise.all([
-        api instanceof RemoteControllerApi ? Promise.resolve(null) : api.getOverview(),
+        api.getOverview(),
         api.getHostState()
       ]);
       setOverview(overviewData);
@@ -71,7 +71,7 @@ export function OverviewScreen({
           : await api.setMaintenanceMode(!host.maintenanceMode);
       setHost(updated);
       onHostUpdated(updated);
-      const freshOverview = api instanceof RemoteControllerApi ? null : await api.getOverview();
+      const freshOverview = await api.getOverview();
       setOverview(freshOverview);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Falha ao atualizar estado do Host.';
@@ -97,21 +97,7 @@ export function OverviewScreen({
     );
   }
 
-  if (api instanceof RemoteControllerApi && host) {
-    return <ScrollView contentContainerStyle={styles.scrollContent}>
-      <Card title="Estado real do Host" subtitle={host.instanceAlias}>
-        <Text style={styles.clanName}>{host.status}</Text>
-        <Text style={styles.seasonLabel}>Conectado: {host.lastConnectedAt} • Uptime: {host.uptimeLabel}</Text>
-        <Text style={styles.seasonLabel}>Fila: {host.pendingQueueCount} • Envios no último minuto: {host.processedPerMinute}</Text>
-        <Text style={styles.seasonLabel}>Respostas: {host.responsesPaused ? 'pausadas' : 'ativas'}</Text>
-        <Button label={host.responsesPaused ? 'Retomar respostas' : 'Pausar respostas'} loading={updatingHost} onPress={() => { setUpdatingHost(true); void api.setResponsesPaused(!host.responsesPaused).then(updated => { setHost(updated); onHostUpdated(updated); }).catch((err: unknown) => setError(err instanceof Error ? err.message : 'Falha no Host.')).finally(() => setUpdatingHost(false)); }} />
-        <Text style={styles.seasonLabel}>Métricas agregadas e manutenção: indisponíveis neste Host.</Text>
-        <Button label="Atualizar" onPress={() => { void loadData(); }} />
-      </Card>
-    </ScrollView>;
-  }
-
-  if (!overview || !host || overview.totalMembers === 0) {
+  if (!overview || !host) {
     return (
       <EmptyState
         title="Nenhuma métrica registrada no período"
@@ -182,7 +168,7 @@ export function OverviewScreen({
         >
           <Text style={ styles.metricLabel }>Membros no Clã</Text>
           <Text style={ styles.metricValue }>{ overview.totalMembers }</Text>
-          <Text style={ styles.metricMeta }>4 esquadrões ativos</Text>
+          <Text style={ styles.metricMeta }>Membros cadastrados no Host</Text>
         </View>
 
         <View
@@ -192,15 +178,15 @@ export function OverviewScreen({
         >
           <Text style={ styles.metricLabel }>Ativos Hoje</Text>
           <Text style={ [styles.metricValue, styles.metricCrimson] }>{ overview.activeToday }</Text>
-          <Text style={ styles.metricMeta }>Participaram no chat/scrim</Text>
+          <Text style={ styles.metricMeta }>Atividade registrada no período</Text>
         </View>
 
         <View
           accessible
-          accessibilityLabel={ `Mensagens processadas hoje: ${overview.messagesToday}` }
+          accessibilityLabel={ `${api instanceof RemoteControllerApi ? 'Mensagens com XP hoje' : 'Mensagens hoje'}: ${overview.messagesToday}` }
           style={ styles.metricCard }
         >
-          <Text style={ styles.metricLabel }>Mensagens Hoje</Text>
+          <Text style={ styles.metricLabel }>{api instanceof RemoteControllerApi ? 'Mensagens com XP hoje' : 'Mensagens hoje'}</Text>
           <Text style={ styles.metricValue }>{ overview.messagesToday }</Text>
           <Text style={ styles.metricMeta }>+{ host.processedPerMinute } msgs/min</Text>
         </View>
