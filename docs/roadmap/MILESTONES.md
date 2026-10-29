@@ -1,35 +1,34 @@
-# Marcos e caminho crítico
+# Marcos e caminho crítico — AERO
 
-## Caminho crítico
-`PoC Host (Termux→nodejs-mobile) → decisão ADR-0003 → Foundation (engine+SQLite+fake adapter) → Community Engine → Sync/Controller → Analytics → MLBB/Rising`
+Estado conferido em `main` (`ee951bd`, PR #23). Código e testes sintéticos já avançaram além do plano inicial: o Controller existe e está integrado antes da conclusão da PoC-1. Isso não resolve a viabilidade do Host Android. **Nenhuma funcionalidade está validada em aparelho real ou com WhatsApp real.**
 
-A UI do Controller só começa depois do PoC-1 e do contrato de sync estarem estáveis.
+## O que existe e o que falta
 
-| Etapa | Entrega | Critério de aceite | Depende de |
-|---|---|---|---|
-| 0 Discovery | Docs, ADRs, auditoria de ambiente, PoC-1 | Docs revisados; relatório PoC-1 com medições | — |
-| 1 Foundation | Monorepo, TS, lint, testes, SQLite+migrações, CommandRegistry, GroupRouteRegistry, `/ping /ajuda /registrar /perfil /xp` com FakeAdapter | `pnpm test` verde; fronteiras de dependência verificadas | ADR-0001/0002 |
-| 2 Community Engine | Atividade, XP ledger, níveis, rankings, inatividade, boas-vindas, RBAC, moderação básica, Membro Estrela (pós-aprovação A1–A5) | Contagem sem duplicidade; ranking reproduzível | Etapa 1, aprovações |
-| 3 Mobile Control | Host experimental, Controller Android (iOS preparado), login, status, rotas, auditoria | Comando remoto só "concluído" após confirmação do Host | ADR-0003/0004 |
-| 4 Analytics | Dashboards, relatórios, exportações, fechamento mensal | Fechamento reexportável | Etapa 2–3 |
-| 5 MLBB & Rising | Spike de provedores, perfil, Rising manual auditado | Dados com fonte/data/completude | Spike MLBB |
-| 6 Expansão | Mídia, minigames, sorteios, enquetes | Sorteio auditável (A6 resolvido) | Etapa 2 |
-| 7 Estabilização | Longa duração, hardening, backups, runbook, builds | Teste ≥ 14 dias no aparelho real | Todas |
+| Marco | Existe no código | Falta para aceite |
+|---|---|---|
+| Foundation | Monorepo TS, SQLite, ledger, rotas, comandos, lint e testes sintéticos | Reproduzir verificações no ambiente alvo e validar operação contínua |
+| Comunidade | Membro Estrela, sorteio, moderação assistida, advertências, boas-vindas, entrada/saída, notificações | Aprovações de regras; resolver riscos #27/#28; validação operacional |
+| Progressão | Curva configurável, ranking, eventos e aviso de level up, persona opcional | Aprovar curva/tom e XP por mensagem; validar avisos reais |
+| Host no PC | Processo Node manual com adapter Baileys experimental e HTTP | Pareamento com conta de teste, reconexão e operação prolongada reais |
+| Controller | Expo/React Native/web, design AERO, login real no Host, status e operações administrativas | Validar UI e fluxo completo em aparelhos; não confundir mock local com protocolo HTTP |
+| Pareamento e grupos | QR autenticado, desconexão, persistência de CHAT/ADM e testes com sockets falsos | Pareamento WhatsApp real, expiração, logout e aplicação após reinício em teste autorizado |
+| Analytics e Power BI | Consultas, contagens, séries, exportações CSV e download web | Validar dados/relatórios; dashboard Power BI publicado não confirmado; sem promessa de sync automático |
+| Scout | Cadastro manual, critérios e notas auditadas | Líder aprovar escopo, finalidade e retenção |
+| Backup/restauração/retenção | Serviços de manutenção; backup/status no Controller; cópias separadas dos bancos | Política de criptografia/rotação, agendamento de retenção e restauração operacional; snapshot conjunto não existe |
+| Host Android / PoC-1 | Guia Termux e análise de viabilidade | Aparelho/modelo, execução e medições da PoC-1; decidir runtime pelo ADR-0003; Host Android não validado |
+| APK Host | Não confirmado: nenhum artefato de distribuição demonstrado | Implementar/validar empacotamento Android, assinatura e distribuição |
+| APK Controller | Código Expo e script Android presentes | Build APK reproduzível, instalação e teste real; não anunciar APK pronto |
+| iOS | Configuração Expo e script iOS presentes | Build/assinatura, distribuição e teste em aparelho iOS; execução não confirmada |
+| MLBB | Provedor não oficial de heróis/meta/counters e comandos | Revalidar disponibilidade externa; estatísticas pessoais automáticas fora do escopo atual |
+| Expansão | Texto/quiz/figurinhas são propostas; música fora | Aprovar escopo antes de implementar; Scrim sem serviço de alertas |
+| Estabilização | Testes sintéticos e correções parciais de auditoria | Riscos #27–#29, teste prolongado ≥ 14 dias em aparelho real, incidentes e recuperação |
 
-Primeiros passos práticos: (1) ADM aprova A9/A13; (2) PoC-1; (3) bootstrap do monorepo.
+## Próximos passos e dependências
 
-## Progresso (2026-10-28)
-| Item | Estado |
-|---|---|
-| Docs de discovery e ADRs 0001–0006 | Feito |
-| Core + comandos (`/ping /ajuda /registrar /perfil /xp /rank /top`) | Feito |
-| Persistência SQLite | Feito |
-| Exportação CSV (Power BI/Excel) | Feito |
-| Adaptador Baileys | Feito, **não testado com WhatsApp real** |
-| Provedor MLBB (heróis/meta/counters) + `/heroi /meta /counter` | Feito; validado contra a API real em 2026-10-28; sem estatísticas pessoais (decisão) |
-| UI do Controller (Expo/PWA) | Protótipo com dados falsos; login é mock **sem segurança** |
-| Teste do WhatsApp real (número de teste) | **Pendente — depende do responsável** |
-| PoC do Host Android em aparelho real | **Pendente — caminho crítico** |
-| Canal Host ↔ Controller + login real (senha verificada pelo Host) | Não iniciado |
-| Membro Estrela (pontuação, sorteio, regra de não repetir vencedor) | Não iniciado |
-| Moderação básica, boas-vindas, entrada/saída de membros | Não iniciado |
+1. Liderança confirma aparelho dedicado, conta de teste, regras e política v1 de autoridade ADM; define transporte seguro e responsável operacional.
+2. Executar [PoC-1 Termux](../mobile/POC1_TERMUX.md), registrar medições e decidir runtime do Host conforme ADR-0003.
+3. Validar pareamento e operação Host ↔ Controller ↔ WhatsApp em conta de teste, sem publicar QR, sessões ou dados reais.
+4. Corrigir/validar os riscos de notificações, revisão de saída e filas/encerramento; aprovar retenção, backups e restauração.
+5. Produzir builds móveis reproduzíveis (APKs; iOS após viabilidade), testar instalação e conduzir operação prolongada.
+
+Supabase/outbox continua proposta arquitetural; o caminho implementado hoje é HTTP direto entre Controller e Host. As decisões de produto e os riscos não são encerrados pela existência de código: consulte [aprovações](../product/APPROVALS_PENDING.md), [catálogo](../product/FEATURE_CATALOG.md) e [privacidade](../security/PRIVACY_AND_RETENTION.md).
