@@ -42,6 +42,7 @@ export class ControlClient {
   private token: string | undefined;
   private readonly ttl: number;
   private readonly clock: { now(): number };
+  private readonly retryKeys = new Map<string, string>();
 
   constructor(private readonly transport: ControlTransport, private readonly opts: ControlClientOptions = {}) {
     this.ttl = opts.requestTtlMs ?? 30_000;
@@ -64,7 +65,19 @@ export class ControlClient {
   disconnectSession(confirm: true, o: CommandOptions = {}) { return this.call('disconnectSession', { confirm }, DisconnectedSchema, { key: o.idempotencyKey ?? randomUUID() }); }
   setGroupRoles(roles: GroupRoles, o: CommandOptions = {}) { return this.call('setGroupRoles', roles, GroupRolesResultSchema, { key: o.idempotencyKey ?? randomUUID() }); }
   leadershipQuery(query: LeadershipQuery) { return this.call('leadershipQuery', query, LeadershipResultSchema); }
-  leadershipAction(action: LeadershipAction, o: CommandOptions = {}) { return this.call('leadershipAction', action, LeadershipResultSchema, { key: o.idempotencyKey ?? randomUUID() }); }
+  async leadershipAction(action: LeadershipAction, o: CommandOptions = {}) {
+    const intent = JSON.stringify(action);
+    const key = o.idempotencyKey ?? this.retryKeys.get(intent) ?? randomUUID();
+    this.retryKeys.set(intent, key);
+    try {
+      const result = await this.call('leadershipAction', action, LeadershipResultSchema, { key });
+      this.retryKeys.delete(intent);
+      return result;
+    } catch (error) {
+      if (!(error instanceof ControlClientError) || !['transport', 'invalid_response'].includes(error.code)) this.retryKeys.delete(intent);
+      throw error;
+    }
+  }
   getOverview(): Promise<Overview> { return this.call('getOverview', {}, OverviewSchema); }
   getHostState(): Promise<HostState> { return this.call('getHostState', {}, HostStateSchema); }
   listGroups(): Promise<GroupRoute[]> { return this.call('listGroups', {}, GroupRouteSchema.array()); }

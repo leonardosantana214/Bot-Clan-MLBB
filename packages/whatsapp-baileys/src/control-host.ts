@@ -7,7 +7,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { join } from 'node:path';
 import { GroupRolesSchema, InvalidGroupRoles, type GroupRoles, type WhatsAppConnection, type WhatsAppGroup } from '@aerobot/control-protocol';
-import { calculateLevel, rankByPeriod, rankPeriodBounds } from '@aerobot/core';
+import { displayName, levelProgress, progressionConfiguration, rankByPeriod, rankPeriodBounds, type LevelFormula } from '@aerobot/core';
 import { ControlServer, HttpControlServer, hashPassword, UnsupportedControlOperation, type HostControlPort, type Overview, type RankingPeriod, type ExportDataset, type HostState } from '@aerobot/control-protocol';
 import { csv, repositorySource, atomicWrite } from '@aerobot/exports';
 import type { SqliteStorage } from '@aerobot/storage-sqlite';
@@ -42,9 +42,9 @@ export class HostController implements HostControlPort {
   private readonly started = Date.now();
   private runtimeStore: ControlRuntime | undefined;
   private leadershipStore: LeadershipHost | undefined;
-  constructor(private readonly storage: SqliteStorage, private readonly adapter: ControlAdapter, private readonly env: NodeJS.ProcessEnv = process.env) {}
+  constructor(private readonly storage: SqliteStorage, private readonly adapter: ControlAdapter, private readonly env: NodeJS.ProcessEnv = process.env, private readonly formula: LevelFormula = progressionConfiguration(env).levelFormula, private readonly levelEvents = adapter.levelEvents) {}
   private get runtime() { if(!this.runtimeStore && this.adapter.sessionDir) this.runtimeStore=new ControlRuntime(this.adapter.sessionDir); return this.runtimeStore; }
-  private get leadership() { if(!this.leadershipStore && this.adapter.sessionDir) this.leadershipStore=new LeadershipHost(this.storage,this.adapter.sessionDir,this.env,this.adapter.levelEvents); return this.leadershipStore; }
+  private get leadership() { if(!this.leadershipStore && this.adapter.sessionDir) this.leadershipStore=new LeadershipHost(this.storage,this.adapter.sessionDir,this.env,this.levelEvents,this.formula); return this.leadershipStore; }
   close() { this.leadershipStore?.close(); this.runtimeStore?.close(); }
   leadershipQuery(query: LeadershipQuery) { if(!this.leadership) throw new UnsupportedControlOperation(); return this.leadership.query(query); }
   leadershipAction(action: LeadershipAction, actor: string) { if(!this.leadership) throw new UnsupportedControlOperation(); return this.leadership.action(action,actor); }
@@ -106,7 +106,10 @@ export class HostController implements HostControlPort {
     const dayStart=Date.parse(`${localDay()}T00:00:00-03:00`);
     const bounds = period === 'daily' ? {start:dayStart,end:dayStart+86_400_000} : rankPeriodBounds(period === 'weekly' ? 'semana' : period === 'monthly' ? 'mes' : 'geral', Date.now());
     const rows = await rankByPeriod(this.storage.members, this.storage.ledger, bounds.start, bounds.end);
-    return Promise.all(rows.map(async r => ({ rank: r.position, memberId: r.member.id.includes('@') ? safeKey(r.member.id) : r.member.id, nickname: r.member.name, level: calculateLevel((await this.storage.ledger.list(r.member.id)).reduce((sum, tx) => sum + tx.amount, 0)), xp: r.xp, messagesSent: (await this.storage.ledger.list(r.member.id)).filter(tx => tx.source === 'message' && tx.occurredAt >= bounds.start && tx.occurredAt < bounds.end).length })));
+    return Promise.all(rows.map(async r => {
+      const ledger = await this.storage.ledger.list(r.member.id);
+      return { rank: r.position, memberId: safeKey(r.member.id), nickname: displayName(r.member.name), ...levelProgress(ledger.reduce((sum, tx) => sum + tx.amount, 0), this.formula), xp: r.xp, messagesSent: ledger.filter(tx => tx.source === 'message' && tx.occurredAt >= bounds.start && tx.occurredAt < bounds.end).length };
+    }));
   }
   async requestExport(dataset: ExportDataset) {
     if (dataset === 'command_logs') {
@@ -115,7 +118,7 @@ export class HostController implements HostControlPort {
       return this.exportReceipt(dataset,'command_logs_v1.csv',logs.length,csv([['schema_version','command','group_id','at','outcome'],...logs.map(r=>[1,r.command,safeKey(String(r.group_id)),r.at,r.outcome])]));
     }
     const snapshot = await repositorySource({ list: () => this.storage.members.list!() }, this.storage.ledger, { list: async () => this.storage.audit.list() }).snapshot();
-    const rows = dataset === 'clan_members' ? snapshot.members.map(m => [safeKey(m.id), m.name, m.status]) : dataset === 'moderation_audit' ? snapshot.auditLog.map(a => [a.action, safeKey(a.actorId), a.at, safeKey(a.subjectId)]) : (await this.getRanking('all_time')).map(r => [r.rank, r.memberId.startsWith('m_') ? r.memberId : safeKey(r.memberId), r.nickname, r.xp]);
+    const rows = dataset === 'clan_members' ? snapshot.members.map(m => [safeKey(m.id), displayName(m.name), m.status]) : dataset === 'moderation_audit' ? snapshot.auditLog.map(a => [a.action, safeKey(a.actorId), a.at, safeKey(a.subjectId)]) : (await this.getRanking('all_time')).map(r => [r.rank, r.memberId, r.nickname, r.xp]);
     const header = dataset === 'clan_members' ? ['id', 'nome', 'status'] : dataset === 'moderation_audit' ? ['acao', 'ator', 'instante', 'alvo'] : ['posicao', 'id', 'nome', 'xp'];
     return this.exportReceipt(dataset,`${dataset}_v1.csv`,rows.length,csv([header,...rows]));
   }
@@ -125,7 +128,7 @@ export class HostController implements HostControlPort {
   }
 
 }
-export async function startControlServer(storage: SqliteStorage, adapter: ControlAdapter, env: NodeJS.ProcessEnv = process.env) {
+export async function startControlServer(storage: SqliteStorage, adapter: ControlAdapter, env: NodeJS.ProcessEnv = process.env, integrations: { levelEvents?: LevelEventsPort; levelFormula?: LevelFormula } = {}) {
   if (!env.AEROBOT_CONTROL_PORT) return undefined;
   // Simple setup: AEROBOT_ADMIN_PASSWORD is hashed in memory at start-up (never written anywhere).
   // AEROBOT_ADMIN_PASSWORD_HASH remains supported for operators who prefer to provide a ready hash.
@@ -135,7 +138,7 @@ export async function startControlServer(storage: SqliteStorage, adapter: Contro
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('AEROBOT_CONTROL_PORT inválida.');
   const bind = env.AEROBOT_CONTROL_HOST ?? '127.0.0.1';
   if (bind !== '127.0.0.1' && bind !== '0.0.0.0') throw new Error('AEROBOT_CONTROL_HOST inválido.');
-  const controller = new HostController(storage, adapter, env);
+  const controller = new HostController(storage, adapter, env, integrations.levelFormula, integrations.levelEvents);
   const protocol = new ControlServer({ host: controller, adminPasswordHash, audit: storage.audit, clock: { now: Date.now } });
   const server = new HttpControlServer(protocol, { port, host: bind, trustNetwork: env.AEROBOT_CONTROL_TRUST_NETWORK === '1', origins: (env.AEROBOT_CONTROL_ORIGINS ?? '').split(',').map(s => s.trim()).filter(Boolean) });
   const url = await server.listen();

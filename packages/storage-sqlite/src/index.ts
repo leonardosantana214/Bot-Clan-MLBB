@@ -55,7 +55,19 @@ export class SqliteStorage {
       record: async event => { this.db.prepare('INSERT INTO audit_log (payload) VALUES (?)').run(JSON.stringify(event)); },
       list: () => this.db.prepare('SELECT payload FROM audit_log ORDER BY id').all().map(row => JSON.parse(String(row.payload)) as AuditEvent)
     };
-    this.seenMessages = { claim: async (groupId, messageId, at) => Boolean(this.db.prepare('INSERT INTO seen_message VALUES (?, ?, ?) ON CONFLICT DO NOTHING').run(groupId, messageId, at).changes) };
+    const received = new Set<string>();
+    this.seenMessages = {
+      claim: async (groupId, messageId) => {
+        const key = JSON.stringify([groupId, messageId]);
+        if (received.has(key) || this.db.prepare('SELECT 1 FROM seen_message WHERE group_id=? AND message_id=?').get(groupId, messageId)) return false;
+        received.add(key); return true;
+      },
+      complete: async (groupId, messageId, at) => {
+        this.db.prepare('INSERT INTO seen_message VALUES (?, ?, ?) ON CONFLICT DO NOTHING').run(groupId, messageId, at);
+        received.delete(JSON.stringify([groupId, messageId]));
+      },
+      release: async (groupId, messageId) => { received.delete(JSON.stringify([groupId, messageId])); }
+    };
   }
 
   close(): void { this.db.close(); }

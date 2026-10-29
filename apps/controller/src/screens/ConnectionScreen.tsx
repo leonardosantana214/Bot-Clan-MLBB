@@ -90,9 +90,9 @@ export function WhatsAppGroupsScreen({ api, demo }: { api: ControllerApi; demo: 
     catch (e) { setMessage(e instanceof Error ? e.message : 'Falha ao salvar papéis.'); }
     finally { setBusy(false); }
   };
-  if(modules) return <View style={{flex:1}}><Button label="Voltar aos pap?is" variant="outline" onPress={()=>setModules(false)}/><GroupsScreen api={api} refreshSignal={0}/></View>;
+  if(modules) return <View style={{flex:1}}><Button label="Voltar aos papéis" variant="outline" onPress={()=>setModules(false)}/><GroupsScreen api={api} refreshSignal={0}/></View>;
   return <ScrollView contentContainerStyle={styles.container}>
-    <Button label="M?dulos e atividade por grupo" onPress={()=>setModules(true)}/>
+    <Button label="Módulos e atividade por grupo" onPress={()=>setModules(true)}/>
     <Text style={styles.heading}>Grupos</Text>{demo ? <Badge label="DEMONSTRAÇÃO" tone="info" /> : null}<Text style={styles.text}>CHAT e ADM devem ser distintos. Comandos administrativos só funcionam na rota ADM.</Text>
     {!groups.length ? <Text style={styles.text}>Nenhum grupo disponível. Conecte o bot e entre nos grupos de teste.</Text> : null}
     {groups.map(group => <Card key={group.id} title={group.name}><Text style={styles.text}>{group.id}</Text><View>

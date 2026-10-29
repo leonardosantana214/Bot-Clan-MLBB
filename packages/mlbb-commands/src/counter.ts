@@ -14,6 +14,8 @@ export const COUNTER_USAGE_MESSAGE =
 export function createCounterCommand(provider: MLBBProvider): CommandDefinition {
   return {
     name: 'counter',
+    description: 'Consulta counters de um herói. Uso: /counter <nome>',
+    usage: COUNTER_USAGE_MESSAGE,
     input: heroQueryArgsSchema,
     async handle(_context, args) {
       const query = parseHeroQuery(args);

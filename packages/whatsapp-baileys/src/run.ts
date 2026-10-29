@@ -42,4 +42,7 @@ async function shutdown() {
 }
 process.once('SIGINT', () => { void shutdown(); });
 process.once('SIGTERM', () => { void shutdown(); });
-try { control = await startControlServer(host.storage, adapter); if (control) process.stdout.write(`Controller: ${control.url}\n`); await adapter.connect(); } catch (error) { await shutdown(); throw error; }
+try { control = await startControlServer(host.storage, adapter, process.env, {
+  levelFormula: host.levelFormula,
+  levelEvents: { list: async (start, end) => (await host.levelEvents.list(undefined, start, end)).map(e => ({ eventId: e.transactionId, memberId: e.memberId, occurredAt: e.occurredAt, previousLevel: e.previousLevel, newLevel: e.newLevel })) }
+}); if (control) process.stdout.write(`Controller: ${control.url}\n`); await adapter.connect(); } catch (error) { await shutdown(); throw error; }

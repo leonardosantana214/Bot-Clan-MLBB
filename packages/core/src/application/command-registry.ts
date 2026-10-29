@@ -9,6 +9,7 @@ export interface CommandContext {
 export interface CommandDefinition {
   readonly name: string;
   readonly description?: string;
+  readonly usage?: string;
   readonly input: z.ZodType<readonly string[]>;
   handle(context: CommandContext, input: readonly string[]): Promise<string>;
 }
@@ -35,10 +36,10 @@ export class CommandRegistry {
     const now = clock.now();
     const previous = this.lastCommand.get(message.senderId);
     if (previous !== undefined && now - previous < this.intervalMs) return;
-    this.lastCommand.set(message.senderId, now);
-    if (!command) { await this.adapter.sendMessage(message.groupId, 'Comando desconhecido. Use /ajuda.'); return; }
+    if (!command) { await this.adapter.sendMessage(message.groupId, 'Comando desconhecido. Use /ajuda.'); this.lastCommand.set(message.senderId, now); return; }
     const parsed = command.input.safeParse(args);
-    const response = parsed.success ? await command.handle({ ...context, commands: this.list().filter(c => route.allowedCommands.includes(c.name)) }, parsed.data) : 'Argumentos inválidos. Use /ajuda.';
+    const response = parsed.success ? await command.handle({ ...context, commands: this.list().filter(c => route.allowedCommands.includes(c.name)) }, parsed.data) : command.usage ?? 'Argumentos inválidos. Use /ajuda.';
     await this.adapter.sendMessage(message.groupId, response);
+    this.lastCommand.set(message.senderId, now);
   }
 }

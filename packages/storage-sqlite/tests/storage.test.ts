@@ -123,10 +123,14 @@ it('retains members, XP, routes, audits and command dedupe after restart; migrat
 it('bounds in-memory dedupe by LRU and age', async () => {
   const seen = new InMemorySeenMessageStore(2, 100);
   expect(await seen.claim('g', 'a', 0)).toBe(true);
+  await seen.complete('g', 'a', 0);
   await seen.claim('g', 'b', 1);
+  await seen.complete('g', 'b', 1);
   expect(await seen.claim('g', 'a', 2)).toBe(false);
   await seen.claim('g', 'c', 3);
+  await seen.complete('g', 'c', 3);
   expect(await seen.claim('g', 'b', 4)).toBe(true);
+  await seen.complete('g', 'b', 4);
   expect(await seen.claim('g', 'b', 104)).toBe(true);
 });
 

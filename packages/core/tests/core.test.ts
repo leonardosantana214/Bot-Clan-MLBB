@@ -14,6 +14,17 @@ function fixture(enabled = true) {
 }
 
 describe('SIMPLE core', () => {
+  it('permite reentrega após falha no handler e no envio', async () => {
+    const f = fixture();
+    const original = f.adapter.sendMessage.bind(f.adapter);
+    let fail = true;
+    f.adapter.sendMessage = async (group, text) => { if (fail) { fail = false; throw new Error('synthetic send failure'); } await original(group, text); };
+    await expect(f.send('/ping', { id: 'retry' })).rejects.toThrow('synthetic');
+    await f.send('/ping', { id: 'retry' });
+    expect(f.adapter.sent).toHaveLength(1);
+    await f.send('/ping', { id: 'retry' });
+    expect(f.adapter.sent).toHaveLength(1);
+  });
   it('deduplicates concurrent messages and commands; ignores own messages', async () => {
     const f = fixture();
     await Promise.all([f.send('/registrar Player', { id: 'same' }), f.send('/registrar Player', { id: 'same' })]);

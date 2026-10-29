@@ -23,6 +23,26 @@ for (const backend of ['memory', 'sqlite'] as const) describe('contrato ' + back
     const repository = db ? new SqliteStarRepository(db) : new InMemoryStarRepository();
     return { ...await setup(repository), repository, db };
   }
+  it('sanitiza snapshots e históricos antigos e exclui vencedor anterior em own', async () => {
+    const f = await fixture();
+    await f.members.register({ ...member('phone'), name: '+00 (000) 000-0000' });
+    await f.fifty('phone');
+    const snapshot = await f.service.close('adm');
+    expect(snapshot.standings.find(r => r.memberId === 'phone')?.displayName).toBe('integrante AERO');
+    const raffle = await f.service.raffle('adm'); f.service.approve('adm');
+    f.setDate('2026-02-15T12:00:00Z');
+    const legacy = new StarMember({ members: f.members, clock: f.clock, repository: {
+      read: () => { const state = f.repository.read(); state.snapshots[0]!.standings.find(r => r.memberId === 'phone')!.displayName = '+00 (000) 000-0000'; return state; },
+      transaction: work => f.repository.transaction(work)
+    } });
+    expect(legacy.history('phone')[0]?.raffleWinner).toBe('integrante AERO');
+    await f.fifty(raffle.winner);
+    expect((await f.service.own(raffle.winner)).eligible).toBe(false);
+    await f.service.close('adm');
+    expect((await f.service.own(raffle.winner)).eligible).toBe(false);
+    await expect(f.service.raffle('adm')).rejects.toThrow('Nenhum elegível');
+    f.db?.close();
+  });
   it('valida soma, limites, compensações e elegibilidade 49/50', async () => {
     const f = await fixture();
     await f.score('a', 30); await f.score('a', 19, 'partidas');

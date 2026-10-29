@@ -114,9 +114,8 @@ export function composeHost(options: HostOptions) {
       const modules = controlRuntime.modules(message.groupId);
       const command = /^\/([a-z][a-z0-9]*)\b/i.exec(message.text.trim())?.[1]?.toLowerCase();
       if (!modules.mlbbCommands && command && ['heroi','meta','counter'].includes(command)) return;
-      if (modules.antiSpam) await community?.moderation.onMessage(message);
       commandContext = command ? {name:command,group:message.groupId,logged:false} : undefined;
-      try { await bot.receive(message); }
+      try { await bot.receive(message, async () => { if (modules.antiSpam) await community?.moderation.onMessage(message); }); }
       catch(error) { if(commandContext && !commandContext.logged) controlRuntime.command(commandContext.name,message.groupId,clock.now(),'error'); throw error; }
       finally { commandContext=undefined; }
     };
@@ -128,7 +127,7 @@ export function composeHost(options: HostOptions) {
     const offMembership = community ? observable.onMembershipChange?.call(options.adapter, event => { enqueue(async () => { await community.membership.onMembershipChange(event); }); }) : undefined;
     const timer = community ? setInterval(() => { enqueue(() => community.tick()); }, 15_000) : undefined;
     let closing: Promise<void> | undefined;
-    return { storage, levelEvents, receive, async idle() { await pending; }, close(): Promise<void> {
+    return { storage, levelEvents, levelFormula: formula, receive, async idle() { await pending; }, close(): Promise<void> {
       return closing ??= (async () => {
         stopped = true;
         if (timer) clearInterval(timer);

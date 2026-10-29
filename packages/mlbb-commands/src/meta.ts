@@ -72,6 +72,7 @@ export const metaArgsSchema = z
 export function createMetaCommand(provider: MLBBProvider): CommandDefinition {
   return {
     name: 'meta',
+    description: 'Consulta o meta por período e elo. Uso: /meta [dias] [rank]',
     input: z.array(z.string()),
     async handle(_context, args) {
       const parsed = metaArgsSchema.safeParse(args);

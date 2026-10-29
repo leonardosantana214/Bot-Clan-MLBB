@@ -78,6 +78,21 @@ describe('password hashing', () => {
 });
 
 describe('login throttle', () => {
+  it('limita scrypt globalmente mesmo com rotação de origens', async () => {
+    const s = await setup();
+    const results = await Promise.all(Array.from({ length: 12 }, (_, i) => s.server.handle(baseReq(s.clock, { type: 'login', origin: `parallel-${i}`, payload: { password: WRONG } })))) as { error: { code: string } }[];
+    expect(results.filter(r => r.error.code === 'invalid_credentials')).toHaveLength(8);
+    expect(results.filter(r => r.error.code === 'rate_limited')).toHaveLength(4);
+  });
+  it('reserva o orçamento antes de oito logins paralelos e rejeita login expirado', async () => {
+    const s = await setup();
+    const expired = await s.server.handle(baseReq(s.clock, { type: 'login', expiresAt: s.clock.now(), payload: { password: PASSWORD } })) as { error: { code: string } };
+    expect(expired.error.code).toBe('expired');
+    const results = await Promise.all(Array.from({ length: 8 }, () => s.server.handle(baseReq(s.clock, { type: 'login', origin: 'parallel', payload: { password: WRONG } })))) as { error: { code: string } }[];
+    expect(results.filter(r => r.error.code === 'invalid_credentials')).toHaveLength(5);
+    expect(results.filter(r => r.error.code === 'rate_limited')).toHaveLength(3);
+    expect(s.server.activeSessions).toBe(0);
+  });
   it('locks progressively and resets after success/forget window', () => {
     const c = new FakeClock(); const t = new LoginThrottle(() => c.now());
     for (let i = 0; i < 4; i++) t.recordFailure('o');
@@ -192,6 +207,31 @@ describe('request validation and auth', () => {
 });
 
 describe('commands: idempotency, expiry, state machine', () => {
+  it('não reexecuta uma chave após poda do histórico', async () => {
+    const s = await setup(); await s.client.login(PASSWORD);
+    await s.client.setResponsesPaused(true, { idempotencyKey: 'pruned-key' });
+    for (let i = 0; i < 2001; i++) await s.client.setResponsesPaused(false, { idempotencyKey: `fill-key-${i}` });
+    const calls = s.calls.setResponsesPaused;
+    await expect(s.client.setResponsesPaused(true, { idempotencyKey: 'pruned-key' })).rejects.toMatchObject({ code: 'expired' });
+    await expect(s.client.setResponsesPaused(false, { idempotencyKey: 'pruned-key' })).rejects.toMatchObject({ code: 'conflict' });
+    expect(s.calls.setResponsesPaused).toBe(calls);
+  });
+  it('preserva a chave da intenção após perder a resposta de uma mutação', async () => {
+    let effects = 0; let lose = true;
+    const s = await setup({ host: { ...makeHost().port, leadershipAction: async () => { effects++; return { schemaVersion: 1, rows: [{ saved: true }], unavailable: [] }; } } });
+    const client = new ControlClient({ send: async request => {
+      const response = await s.transport.send(request);
+      if ((request as { type: string }).type === 'leadershipAction' && lose) { lose = false; throw new Error('synthetic transport failure'); }
+      return response;
+    } }, { clock: s.clock });
+    await client.login(PASSWORD);
+    const action = { action: 'scoutNote' as const, confirm: true as const, candidateId: 'synthetic', reason: 'Nota de teste' };
+    await expect(client.leadershipAction(action)).rejects.toMatchObject({ code: 'transport' });
+    await client.leadershipAction(action);
+    expect(effects).toBe(1);
+    // A later successful new intent may intentionally append another note.
+    await client.leadershipAction(action); expect(effects).toBe(2);
+  });
   it('replays the previous result without re-executing', async () => {
     const s = await setup();
     await s.client.login(PASSWORD);

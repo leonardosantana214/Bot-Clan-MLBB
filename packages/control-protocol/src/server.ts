@@ -78,9 +78,12 @@ export class ControlServer implements ControlMessageHandler {
   private readonly originThrottle: LoginThrottle;
   private readonly globalThrottle: LoginThrottle;
   private readonly commands: CommandLog;
-  private readonly byKey = new Map<string, string>();
+  // Session-scoped tombstones outlive command-log pruning, for the maximum session lifetime.
+  private readonly byKey = new Map<string, { id: string; fingerprint: string; until: number }>();
   private readonly inflight = new Map<string, Promise<Result>>();
   private readonly now: () => number;
+  private passwordChecks = 0;
+  private readonly passwordChecksByOrigin = new Map<string, number>();
 
   constructor(private readonly o: ControlServerOptions) {
     if (!isValidPasswordHash(o.adminPasswordHash)) throw new Error('adminPasswordHash is not a valid scrypt hash');
@@ -116,7 +119,10 @@ export class ControlServer implements ControlMessageHandler {
   }
 
   private async dispatch(req: ControlRequest, pairingAllowed: boolean): Promise<Result> {
-    if (req.type === 'login') return this.login(req.origin ?? 'unknown', req.payload.password);
+    if (req.type === 'login') {
+      if (this.now() >= req.expiresAt) return { outcome: fail('expired') };
+      return this.login(req.origin ?? 'unknown', req.payload.password);
+    }
 
     const session = this.sessions.validate(req.token);
     if (!session || !req.token) return { outcome: fail('unauthenticated') };
@@ -176,13 +182,24 @@ export class ControlServer implements ControlMessageHandler {
       this.o.logger?.warn('control.login_locked', { retryAfterMs: wait });
       return { outcome: fail('rate_limited', wait) };
     }
-    const ok = await verifyPassword(password, this.o.adminPasswordHash);
+    // Reserve synchronously before scrypt yields; concurrent requests share the budget.
+    this.originThrottle.recordFailure(origin); this.globalThrottle.recordFailure('*');
+    const active = this.passwordChecksByOrigin.get(origin) ?? 0;
+    if (active >= 5 || this.passwordChecks >= 8) return { outcome: fail('rate_limited', 1000) };
+    this.passwordChecks++; this.passwordChecksByOrigin.set(origin, active + 1);
+    let ok: boolean;
+    try { ok = await verifyPassword(password, this.o.adminPasswordHash); }
+    finally {
+      this.passwordChecks--;
+      const remaining = (this.passwordChecksByOrigin.get(origin) ?? 1) - 1;
+      if (remaining) this.passwordChecksByOrigin.set(origin, remaining); else this.passwordChecksByOrigin.delete(origin);
+    }
     if (!ok) {
-      this.originThrottle.recordFailure(origin); this.globalThrottle.recordFailure('*');
       await this.audit('control.login.failed', 'ADM:-', origin.slice(0, 64));
       return { outcome: fail('invalid_credentials') };
     }
     this.originThrottle.recordSuccess(origin);
+    this.globalThrottle.releaseSuccess('*');
     const { token, session } = this.sessions.create();
     await this.audit('control.login', `ADM:${session.id}`, 'session');
     return { outcome: { ok: true, data: { token, sessionId: session.id, expiresAt: session.expiresAt } } };
@@ -192,8 +209,10 @@ export class ControlServer implements ControlMessageHandler {
     const fingerprint = createHash('sha256').update(req.type).update('\0').update(JSON.stringify(req.payload)).digest('hex');
     const idx = `${session.id}:${req.idempotencyKey}`;
 
-    const existingId = this.byKey.get(idx);
-    const existing = existingId ? this.commands.get(existingId) : undefined;
+    for (const [key, value] of this.byKey) if (this.now() >= value.until && !this.inflight.has(key)) this.byKey.delete(key);
+    const tombstone = this.byKey.get(idx);
+    const existing = tombstone ? this.commands.get(tombstone.id) : undefined;
+    if (tombstone && !existing) return { outcome: fail(tombstone.fingerprint === fingerprint ? 'expired' : 'conflict'), replayed: true };
     if (existing) {
       if (existing.fingerprint !== fingerprint) return { outcome: fail('conflict') };
       const pending = this.inflight.get(idx);
@@ -209,7 +228,7 @@ export class ControlServer implements ControlMessageHandler {
       await this.audit(`control.${req.type}.expired`, actor, subjectOf(req));
       return { outcome: rec.outcome, command: { id: rec.id, state: rec.state } };
     }
-    this.byKey.set(idx, rec.id);
+    this.byKey.set(idx, { id: rec.id, fingerprint, until: session.createdAt + (this.o.session?.maxLifetimeMs ?? 48 * 3600_000) });
     const run = this.execute(rec, req, actor);
     this.inflight.set(idx, run);
     try { return await run; } finally { this.inflight.delete(idx); }
